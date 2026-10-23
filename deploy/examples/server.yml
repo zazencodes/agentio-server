@@ -1,0 +1,21 @@
+# agentio server configuration. Every key can also be set as an environment variable:
+# upper-case it, replace "-" with "_" and prefix AGENTIO_ (public-url → AGENTIO_PUBLIC_URL).
+# Unknown keys, and AGENTIO_* variables that name no key, are an error.
+
+# Public URL of this server. Required.
+public-url: https://agentio.example.com
+http-addr: ":2586"
+trust-proxy: true              # take the client IP from your reverse proxy's X-Forwarded-For
+
+data-dir: /var/lib/agentio     # the SQLite database, agentio.db, lives here
+
+# Access
+allow-signup: false            # true lets anyone create an account with a username and password
+
+# Browser push (generate with: agentio-server webpush keys)
+# webpush-public-key: ...
+# webpush-private-key: ...
+# webpush-contact: admin@example.com
+
+log-level: info                # debug | info | warn | error
+log-format: text               # text | json

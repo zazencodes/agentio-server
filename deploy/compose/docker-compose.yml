@@ -1,0 +1,20 @@
+# Self-hosted agentio with SQLite. Start with:  docker compose up -d
+# Then create an admin:  docker compose exec agentio agentio-server user add --role admin you
+services:
+  agentio:
+    image: agentio/server:latest
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "2586:2586"
+    environment:
+      AGENTIO_PUBLIC_URL: https://agentio.example.com   # the public URL of this server (required)
+      AGENTIO_TRUST_PROXY: "true"                    # set when a reverse proxy terminates TLS
+      # AGENTIO_ALLOW_SIGNUP: "false"
+    volumes:
+      - agentio-data:/var/lib/agentio
+
+volumes:
+  agentio-data:

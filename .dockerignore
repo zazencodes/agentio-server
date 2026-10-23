@@ -1,0 +1,4 @@
+# The image is built from protocol/ and server/ only (deploy/docker/Dockerfile); keep everything else out of the context.
+*
+!protocol/
+!server/

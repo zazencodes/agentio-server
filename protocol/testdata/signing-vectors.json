@@ -1,0 +1,54 @@
+{
+  "private_key": "c9afa9d845ba75166b5c215767b1d6934e50c3db36e89b127b8a622b120f6721",
+  "public_key": "BGD-1LolWp0xyWHrdMY1bWjASbiSO2H6bOZpYi5g8p-2eQP-EAi4vJmkGunpVii8ZPLxsgwtfp9Rd6PClNRGIpk",
+  "key_id": "dev_wgfyntqtrhsg32d2ussr",
+  "envelopes": [
+    {
+      "source": "swift",
+      "envelope": {
+        "v": 1,
+        "kind": "command",
+        "signer": "dev_wgfyntqtrhsg32d2ussr",
+        "payload": "eyJjcmVhdGVkIjoxNzYwNjU5MTUwLCJleHBpcmVzIjoxNzYwNzQ1NTUwLCJob3N0IjoiaHN0X3ZlY3RvciIsImlkIjoiY21kX3ZlY3RvciIsInNlc3Npb24iOiJzZXNfdmVjdG9yIiwidGV4dCI6IlVzZSBQb3N0Z3JlU1FMLiDDnG7Dr2PDtmTDqSDinJMgPCY-In0",
+        "sig": "MEQCIEW3XLWNyMS7-Xe_NNkT58qxqb6aLGF3Lthg2v1BJ1ITAiBOr67xwHSA1oZ_8Njz1DUV4K9BI_oJuUwbm_hEEIpWSA"
+      },
+      "payload": "{\"created\":1760659150,\"expires\":1760745550,\"host\":\"hst_vector\",\"id\":\"cmd_vector\",\"session\":\"ses_vector\",\"text\":\"Use PostgreSQL. Ünïcödé ✓ \u003c\u0026\u003e\"}",
+      "payload_hash": "64b91987806d7159e22f5341ca26b883bc664a30707f063e26de48991691cdcc"
+    },
+    {
+      "source": "kotlin",
+      "envelope": {
+        "v": 1,
+        "kind": "command",
+        "signer": "dev_wgfyntqtrhsg32d2ussr",
+        "payload": "eyJpZCI6ImNtZF92ZWN0b3IiLCJob3N0IjoiaHN0X3ZlY3RvciIsInNlc3Npb24iOiJzZXNfdmVjdG9yIiwidGV4dCI6IlVzZSBQb3N0Z3JlU1FMLiDDnG7Dr2PDtmTDqSDinJMgPCY-IiwiY3JlYXRlZCI6MTc2MDY1OTE1MCwiZXhwaXJlcyI6MTc2MDc0NTU1MH0",
+        "sig": "MEQCIC3Dkk6_LIlg0EsUHmLrZAK0xCRYC7ZlIDVTtoyZokTyAiAzrUL7lDTHz-EaZsbeANDOVjbsaAG6D_n5z_YpLSjqdg"
+      },
+      "payload": "{\"id\":\"cmd_vector\",\"host\":\"hst_vector\",\"session\":\"ses_vector\",\"text\":\"Use PostgreSQL. Ünïcödé ✓ \u003c\u0026\u003e\",\"created\":1760659150,\"expires\":1760745550}",
+      "payload_hash": "41e007c43b9f6c69d4e3a7b002418733826c44d6868d42e6188e45e7f35ad8a2"
+    },
+    {
+      "source": "go",
+      "envelope": {
+        "v": 1,
+        "kind": "command",
+        "signer": "dev_wgfyntqtrhsg32d2ussr",
+        "payload": "eyJpZCI6ImNtZF92ZWN0b3IiLCJob3N0IjoiaHN0X3ZlY3RvciIsInNlc3Npb24iOiJzZXNfdmVjdG9yIiwidGV4dCI6IlVzZSBQb3N0Z3JlU1FMLiDDnG7Dr2PDtmTDqSDinJMgXHUwMDNjXHUwMDI2XHUwMDNlIiwiY3JlYXRlZCI6MTc2MDY1OTE1MCwiZXhwaXJlcyI6MTc2MDc0NTU1MH0",
+        "sig": "MEUCIAnkzDHDnZdbyNiEL5vgTblBun0_ruc4gFF_737r1KK2AiEAhCmD5WcenrJF1r5px8MVw9AGFjZ3v_Qs0LyPictPiaY"
+      },
+      "payload": "{\"id\":\"cmd_vector\",\"host\":\"hst_vector\",\"session\":\"ses_vector\",\"text\":\"Use PostgreSQL. Ünïcödé ✓ \\u003c\\u0026\\u003e\",\"created\":1760659150,\"expires\":1760745550}",
+      "payload_hash": "5f13d8ae942a7e3e5830ee397e9fb0dbccea46e7bf74763ed81e9643bb97b68d"
+    }
+  ],
+  "pair": {
+    "k": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
+    "pair_id": "pair_vector",
+    "host_key": "BGD-1LolWp0xyWHrdMY1bWjASbiSO2H6bOZpYi5g8p-2eQP-EAi4vJmkGunpVii8ZPLxsgwtfp9Rd6PClNRGIpk",
+    "device_key": "BGD-1LolWp0xyWHrdMY1bWjASbiSO2H6bOZpYi5g8p-2eQP-EAi4vJmkGunpVii8ZPLxsgwtfp9Rd6PClNRGIpk",
+    "device_sensitive_key": "BGD-1LolWp0xyWHrdMY1bWjASbiSO2H6bOZpYi5g8p-2eQP-EAi4vJmkGunpVii8ZPLxsgwtfp9Rd6PClNRGIpk",
+    "device_enc_key": "BGD-1LolWp0xyWHrdMY1bWjASbiSO2H6bOZpYi5g8p-2eQP-EAi4vJmkGunpVii8ZPLxsgwtfp9Rd6PClNRGIpk",
+    "device_name": "Alex's browser",
+    "device_sensitive_origin": "https://app.agentio.sh",
+    "mac": "Uu8_CXZVdMZk5Qng2ZIPhTECXNz0yFUdiNVnGndwxRY"
+  }
+}

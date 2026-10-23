@@ -1,0 +1,30 @@
+{
+  "private_key": "c9afa9d845ba75166b5c215767b1d6934e50c3db36e89b127b8a622b120f6721",
+  "public_key": "BGD-1LolWp0xyWHrdMY1bWjASbiSO2H6bOZpYi5g8p-2eQP-EAi4vJmkGunpVii8ZPLxsgwtfp9Rd6PClNRGIpk",
+  "host_id": "hst_wgfyntqtrhsg32d2ussr",
+  "device_id": "dev_wgfyntqtrhsg32d2ussr",
+  "settings": {
+    "source": "go",
+    "envelope": {
+      "v": 1,
+      "kind": "settings",
+      "signer": "hst_wgfyntqtrhsg32d2ussr",
+      "payload": "eyJob3N0IjoiaHN0X3dnZnludHF0cmhzZzMyZDJ1c3NyIiwicmV2aXNpb24iOiI1ZjEzZDhhZTk0MmE3ZTNlNTgzMGVlMzk3ZTlmYjBkYmNjZWE0NmU3YmY3NDc2M2VkODFlOTY0M2JiOTdiNjhkIiwidGltZSI6MTc2MDY1OTE1MCwiaWRsZV90aW1lIjp0cnVlLCJidWlsdGluIjp7Im5vdGlmeSI6IjJtIiwicHJvZ3Jlc3MiOiIxNW0iLCJyZXF1ZXN0cyI6Im5ldmVyIn0sImRlZmF1bHRzIjp7Im5vdGlmeSI6ImFsd2F5cyJ9LCJwcm9qZWN0cyI6W3siaWQiOiJwcmpfdmVjdG9yIiwicGF0aCI6In4vcHJvL8OcbsOvY8O2ZMOpIOKckyBcdTAwM2NcdTAwMjZcdTAwM2UiLCJ2YWx1ZXMiOnsicmVxdWVzdHMiOiI1bSJ9fV0sImNoYW5nZSI6eyJpZCI6ImNoZ192ZWN0b3IiLCJyZXN1bHQiOiJyZWplY3RlZCIsInJlYXNvbiI6Iml0cyBzZXR0aW5ncyBjaGFuZ2VkIHNpbmNlIHlvdSBsb29rZWQifX0",
+      "sig": "MEUCIQDwOW30MpdyAsHbynwFylhPllx8iowM4-KGt5Tv8ga-0AIgfZ1baJRqDZVAMkQ5cUpBD97lFzLsrNgE2fl8xqWcSmo"
+    },
+    "payload": "{\"host\":\"hst_wgfyntqtrhsg32d2ussr\",\"revision\":\"5f13d8ae942a7e3e5830ee397e9fb0dbccea46e7bf74763ed81e9643bb97b68d\",\"time\":1760659150,\"idle_time\":true,\"builtin\":{\"notify\":\"2m\",\"progress\":\"15m\",\"requests\":\"never\"},\"defaults\":{\"notify\":\"always\"},\"projects\":[{\"id\":\"prj_vector\",\"path\":\"~/pro/Ünïcödé ✓ \\u003c\\u0026\\u003e\",\"values\":{\"requests\":\"5m\"}}],\"change\":{\"id\":\"chg_vector\",\"result\":\"rejected\",\"reason\":\"its settings changed since you looked\"}}",
+    "payload_hash": "2b477cd1306ad6429d45dc2f1d9c2dd16e07c13822470b7ece302f269366d6cf"
+  },
+  "settings_change": {
+    "source": "web",
+    "envelope": {
+      "v": 1,
+      "kind": "settings_change",
+      "signer": "dev_wgfyntqtrhsg32d2ussr",
+      "payload": "eyJpZCI6ImNoZ192ZWN0b3IiLCJob3N0IjoiaHN0X3dnZnludHF0cmhzZzMyZDJ1c3NyIiwicmV2aXNpb24iOiI1ZjEzZDhhZTk0MmE3ZTNlNTgzMGVlMzk3ZTlmYjBkYmNjZWE0NmU3YmY3NDc2M2VkODFlOTY0M2JiOTdiNjhkIiwiZGVmYXVsdHMiOnsibm90aWZ5IjoiMm0iLCJwcm9ncmVzcyI6Im5ldmVyIn0sInByb2plY3RzIjpbeyJpZCI6InByal92ZWN0b3IiLCJ2YWx1ZXMiOnsicmVxdWVzdHMiOiJhbHdheXMifX1dLCJjcmVhdGVkIjoxNzYwNjU5MTUwLCJleHBpcmVzIjoxNzYxMjYzOTUwfQ",
+      "sig": "MEQCIAQUliwYvnCBDl2-BAvxIbM11moXVFxVAw0VWz09TD4wAiAo3uWLnp62zTT2XCE-MgpmFWPqsSXs88vIswTPcMQN4Q"
+    },
+    "payload": "{\"id\":\"chg_vector\",\"host\":\"hst_wgfyntqtrhsg32d2ussr\",\"revision\":\"5f13d8ae942a7e3e5830ee397e9fb0dbccea46e7bf74763ed81e9643bb97b68d\",\"defaults\":{\"notify\":\"2m\",\"progress\":\"never\"},\"projects\":[{\"id\":\"prj_vector\",\"values\":{\"requests\":\"always\"}}],\"created\":1760659150,\"expires\":1761263950}",
+    "payload_hash": "e7ab6dd08bee1a8f2f2354aa68783befa0ace4815c93cf0fa3aec7500d0c467e"
+  }
+}

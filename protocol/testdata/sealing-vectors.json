@@ -1,0 +1,59 @@
+{
+  "host_enc_private": "0f1e2d3c4b5a69788796a5b4c3d2e1f00112233445566778899aabbccddeeff0",
+  "host_enc_key": "BHpxVpS-oM4SyxvDzrcSLsHVJCJEoA91tqe7LnPlWwSuYGIp-z2ff96xAGxlWirJQyfgDequMnK2rfl30jBVdZc",
+  "device_enc_private": "c9afa9d845ba75166b5c215767b1d6934e50c3db36e89b127b8a622b120f6721",
+  "device_enc_key": "BGD-1LolWp0xyWHrdMY1bWjASbiSO2H6bOZpYi5g8p-2eQP-EAi4vJmkGunpVii8ZPLxsgwtfp9Rd6PClNRGIpk",
+  "host_id": "hst_vector",
+  "device_id": "dev_vector",
+  "pair_key": "EWm653IIOdmXJiaCmo7EevP8xKkw184_V7NnCkGSlcs",
+  "frames": [
+    {
+      "nonce": "AAECAwQFBgcICQoL",
+      "envelope": {
+        "v": 1,
+        "kind": "command",
+        "signer": "dev_vector",
+        "payload": "eyJpZCI6ImNtZF92ZWN0b3IiLCJ0ZXh0Ijoiw5xuw69jw7Zkw6kg4pyTIDwmPiJ9",
+        "sig": "MEUCIQ"
+      },
+      "frame": {
+        "id": "frm_vector1",
+        "from": "dev_vector",
+        "to": "hst_vector",
+        "time": 1760659200,
+        "nonce": "AAECAwQFBgcICQoL",
+        "ct": "NJ_67ZQxWnvEAvJOvTlp51DHnya_fq7pDHrBUui0bR4huucyAh6Cnyg5GRXDiTZJgNFsXZMCC1TzK5jzVhivV0wqvkYX7-p1AIEdD6mcabsjccprF2nuUZJxU1cDwIPxx8TSjEiSyueKyx7vpi12j1Ct-_orWMoBaKsPkEpI5n_DGe19U0HeDw8PCuAvrxNhDL8DX0S3Nq8jTg"
+      }
+    },
+    {
+      "nonce": "DA0ODxAREhMUFRYX",
+      "envelope": {
+        "v": 1,
+        "kind": "update",
+        "signer": "hst_vector",
+        "payload": "eyJob3N0IjoiaHN0X3ZlY3RvciIsInRpbWUiOjE3NjA2NTkyMDAsImVwb2NoIjoiZXBvX3ZlY3RvciJ9",
+        "sig": "MEQCIA"
+      },
+      "frame": {
+        "id": "frm_vector2",
+        "from": "hst_vector",
+        "to": "dev_vector",
+        "time": 1760659201,
+        "nonce": "DA0ODxAREhMUFRYX",
+        "ct": "Bjpbi175SsUwK2tRqdW4tq_ZtWihZOJXBGDjt-JUexkAJ6k5JdOz-OHVnihSSWKyfRzGdHvjXWDuKdYLgZFog10snjSTTVRBOsPB8tCT45TGf-CA0wsD4NUZnL_8AuzAVzLWgrNPM3i6KBoWq6-S-BYqf0O-krsS2uPJWA6-yqqauiKr6Fgn9_rgJfZNJ2O1FAIVyuvNImUFUWYA1iOmLzXLO4FR0Gjbow"
+      }
+    }
+  ],
+  "secret": {
+    "k": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
+    "pair_id": "pair_vector",
+    "name_key": "QCyg98S3apvykVJP7CQPN3O4qHbd460bSdRadc7nZ44",
+    "confirm_key": "a2L45ifsLCeBWIH5UEDiA9iF-lDllEgJOKb3HA9x20w",
+    "name": "Alex's browser ✓",
+    "name_nonce": "GBkaGxwdHh8gISIj",
+    "sealed_name": "GBkaGxwdHh8gISIjdYeVjFW3_qg97sLfDo_v-0gjbB8UkbCaPSjgfERDCPDPpQ",
+    "confirm": "{\"v\":1,\"kind\":\"pair\"}",
+    "confirm_nonce": "JCUmJygpKissLS4v",
+    "sealed_confirm": "JCUmJygpKissLS4vnrQhtaLZ3ioxq_13GyTkbFwlyhF0VVodB4AURsO4eWtK3HE6tw"
+  }
+}
