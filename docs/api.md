@@ -357,7 +357,7 @@ Session:
 
 ```json
 {"id":"ses_…","project":"prj_…","provider":"claude-code","native_id":"5b1c…","title":"Fix auth bug","status":"active",
- "input":"queue","input_reason":"Available at the next agentio tool call","created":1760650000,"last_activity":1760659200,"seq":57}
+ "input":"queue","input_reason":"Available at the next agentio tool call","remote":false,"created":1760650000,"last_activity":1760659200,"seq":57}
 ```
 
 Item (one entry of a session's timeline; exactly one of `event`, `request`, `command`):
@@ -395,6 +395,8 @@ Command `state` moves strictly forward:
 Before the bridge has it, the browser shows "Sending" for a command in its own outbox. Nothing is reported `delivered` before a complete successful MCP stdout write. MCP has no result-receipt protocol; a crash after writing but before acknowledgment may duplicate a message. A session that ends with commands not yet delivered moves them to `failed` (`"The session ended before this could be delivered"`); the user can retry (the browser signs a new command with the same text) or discard (a local dismissal).
 
 `input` says what a reply will do right now: `queue` (it waits for the agent's next agentio MCP tool result) or `unavailable` (with `input_reason`). Replies never start or interrupt a turn.
+
+`remote` is true while the session is in remote control (section 10.7). `input_reason` then reads "Remote control is on: the agent picks it up at its next step", or "The agent is waiting for your message" while an `agentio_wait` call waits.
 
 Session IDs are derived: `ses_` + first 20 chars of lowercase base32(sha256(`host_id|provider|native_id`)). Project IDs: `prj_` + the same over `host_id|path_hash`, where `path_hash` is the hex sha256 of the project's absolute path with symlinks resolved (the key of its entry in the settings file).
 
@@ -457,6 +459,10 @@ Notification settings (`notify`, `progress`, `requests`; values `always`, `never
 * `error`: the file doesn't parse or validate. The snapshot then carries no values, the browser shows the error with no controls, and the bridge rejects changes until it is fixed.
 * `change`: the outcome of the newest device change the bridge handled, `{"id","result":"applied"|"rejected","reason"}`.
 * `settings_change` is the complete desired file: `defaults` replaces `[defaults]`, `projects` replaces every project table, and a project left out has no override. `id` is `chg_` + `NewRandomID`; `expires` = `created` + 7 days. The browser builds it only from a verified snapshot, its own pending change and the user's input, against the snapshot's `revision`.
+
+### 10.7 Remote control
+
+Remote control is off for every session until its agent turns it on with `agentio_remote`, which the MCP instructions allow only when the user asks to continue from their phone. Turning it on sets the session's `remote`, adds an `info` event "Remote control on" and sends it with a push notification that opens the session; turning it off adds "Remote control off" without one. It goes off when the session ends. While it is on, the session's notifications, questions and approvals are sent at once whatever the project's `notify` and `requests` settings say (the user asked for the session on their phone); `progress` keeps its setting. Nothing about the wire changes: the user's messages are ordinary commands, delivered at the next agentio tool call. The agent also waits for them with the `agentio_wait` MCP tool instead of ending its turn.
 
 ---
 

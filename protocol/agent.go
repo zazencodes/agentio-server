@@ -117,6 +117,7 @@ type Session struct {
 	Status       string `json:"status"`
 	Input        string `json:"input"`
 	InputReason  string `json:"input_reason"`
+	Remote       bool   `json:"remote"` // remote control: the user drives the session from a paired browser
 	Created      int64  `json:"created"`
 	LastActivity int64  `json:"last_activity"`
 	Seq          int64  `json:"seq"`
