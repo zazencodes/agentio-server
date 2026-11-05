@@ -45,6 +45,12 @@ const (
 	InputUnavailable = "unavailable"
 )
 
+// Cooperative stop is a user instruction delivered through the agent's MCP result.
+const (
+	IntentStop      = "stop"
+	StopInstruction = "The user requested that you stop this run. Stop further work, preserve completed work, report the outcome, and finish cleanly. Call agentio_status with end_session: true when finished. This is a user instruction, not a bridge failure or permission to perform a pending action."
+)
+
 // Command states. They only move forward, in this order, until a terminal state.
 const (
 	CommandReceived  = "received"
@@ -79,10 +85,14 @@ const (
 	RequestAnswered = "answered"
 	RequestExpired  = "expired"
 	RequestCanceled = "canceled"
+	RequestDeclined = "declined"
+	RequestStopped  = "stopped"
 
 	DecisionApprove = "approve"
 	DecisionReject  = "reject"
 	DecisionAnswer  = "answer"
+	DecisionDecline = "decline"
+	DecisionStop    = "stop"
 )
 
 // RequestTerminal reports whether a request status is final.
@@ -109,18 +119,21 @@ type Project struct {
 
 // Session is one agent session, as its bridge records it.
 type Session struct {
-	ID           string `json:"id"`
-	Project      string `json:"project"`
-	Provider     string `json:"provider"`
-	NativeID     string `json:"native_id"`
-	Title        string `json:"title"`
-	Status       string `json:"status"`
-	Input        string `json:"input"`
-	InputReason  string `json:"input_reason"`
-	Remote       bool   `json:"remote"` // remote control: the user drives the session from a paired browser
-	Created      int64  `json:"created"`
-	LastActivity int64  `json:"last_activity"`
-	Seq          int64  `json:"seq"`
+	Run           string `json:"run,omitempty"` // changes when an ended session checks in again
+	ReadPos       int64  `json:"read_pos,omitempty"`
+	StopRequested string `json:"stop_requested,omitempty"` // command ID for this run; cleared on the next run
+	ID            string `json:"id"`
+	Project       string `json:"project"`
+	Provider      string `json:"provider"`
+	NativeID      string `json:"native_id"`
+	Title         string `json:"title"`
+	Status        string `json:"status"`
+	Input         string `json:"input"`
+	InputReason   string `json:"input_reason"`
+	Remote        bool   `json:"remote"` // remote control: the user drives the session from a paired browser
+	Created       int64  `json:"created"`
+	LastActivity  int64  `json:"last_activity"`
+	Seq           int64  `json:"seq"`
 }
 
 // Item types.
@@ -133,15 +146,23 @@ const (
 // Item is one entry of a session's timeline. Pos orders the timeline and never changes; Seq changes with its state.
 // Exactly one of Event, Request and Command is set, as Type says.
 type Item struct {
-	ID      string       `json:"id"`
-	Session string       `json:"session"`
-	Type    string       `json:"type"`
-	Time    int64        `json:"time"`
-	Pos     int64        `json:"pos"`
-	Seq     int64        `json:"seq"`
-	Event   *EventItem   `json:"event,omitempty"`
-	Request *RequestItem `json:"request,omitempty"`
-	Command *CommandItem `json:"command,omitempty"`
+	Archive *ArchiveState `json:"archive,omitempty"`
+	ID      string        `json:"id"`
+	Session string        `json:"session"`
+	Type    string        `json:"type"`
+	Time    int64         `json:"time"`
+	Pos     int64         `json:"pos"`
+	Seq     int64         `json:"seq"`
+	Event   *EventItem    `json:"event,omitempty"`
+	Request *RequestItem  `json:"request,omitempty"`
+	Command *CommandItem  `json:"command,omitempty"`
+}
+
+// ArchiveState is the latest explicit archive/restore action, ordered by Created then ID.
+type ArchiveState struct {
+	ID       string `json:"id"`
+	Archived bool   `json:"archived"`
+	Created  int64  `json:"created"` // Unix milliseconds
 }
 
 // EventItem is a notification from an agent session.
@@ -170,6 +191,7 @@ type ResponseRecord struct {
 
 // CommandItem is a message from the user to an agent session and how far it got.
 type CommandItem struct {
+	Intent      string `json:"intent,omitempty"` // stop: a cooperative instruction to finish this run
 	Text        string `json:"text"`
 	Created     int64  `json:"created"`
 	Expires     int64  `json:"expires"`

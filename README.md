@@ -15,7 +15,7 @@ This is the published source of the server and of the wire protocol it shares wi
 
 `build.env` names the release and the private source revision this tree was exported from, and `agentio-server version` prints both. There are no prebuilt server binaries: self-host by building the container from this tree ([docs/self-hosting.md](docs/self-hosting.md)).
 
-The `agentio` CLI and the web app are proprietary and not part of this repository. They work with any server built from it: `agentio login --server https://your.server`, and the web app is in every release as a static site you host with a file naming your server ([docs/self-hosting.md](docs/self-hosting.md#the-web-app)). [docs/api.md](docs/api.md) documents everything they send and receive, so you can also write your own clients.
+The `agentio` CLI and the web app are proprietary and not part of this repository. They work with any server built from it: `agentio login --server https://your.server --app https://your.web.app`, and the web app is in every release as a static site you host with a file naming your server ([docs/self-hosting.md](docs/self-hosting.md#the-web-app)). [docs/api.md](docs/api.md) documents everything they send and receive, so you can also write your own clients.
 
 ## Layout
 
@@ -36,7 +36,7 @@ make docker   # agentio/server:<version> (PLATFORM=linux/amd64 for x86 servers)
 
 ## Security
 
-The server is untrusted by design. Every frame between a computer and a browser is signed and then encrypted for that pair with keys they exchanged through the terminal's pairing code, so someone who fully controls the server can neither read what passes through it nor get any text or decision into a paired machine's agents (docs/api.md §5, §6, §9). It can still drop or delay frames and see which machines and browsers talk, when and how much.
+The server is untrusted by design. Every frame between a computer and a browser is signed and then encrypted for that pair with keys they exchanged through the terminal's pairing link, so someone who fully controls the server can neither read what passes through it nor get any text or decision into a paired machine's agents (docs/api.md §5, §6, §9). It can still drop or delay frames and see which machines and browsers talk, when and how much.
 
 Report vulnerabilities to security@agentio.sh; see [agentio.sh/security](https://agentio.sh/security/).
 

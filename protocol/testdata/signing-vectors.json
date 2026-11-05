@@ -43,12 +43,11 @@
   "pair": {
     "k": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
     "pair_id": "pair_vector",
-    "host_key": "BGD-1LolWp0xyWHrdMY1bWjASbiSO2H6bOZpYi5g8p-2eQP-EAi4vJmkGunpVii8ZPLxsgwtfp9Rd6PClNRGIpk",
     "device_key": "BGD-1LolWp0xyWHrdMY1bWjASbiSO2H6bOZpYi5g8p-2eQP-EAi4vJmkGunpVii8ZPLxsgwtfp9Rd6PClNRGIpk",
     "device_sensitive_key": "BGD-1LolWp0xyWHrdMY1bWjASbiSO2H6bOZpYi5g8p-2eQP-EAi4vJmkGunpVii8ZPLxsgwtfp9Rd6PClNRGIpk",
     "device_enc_key": "BGD-1LolWp0xyWHrdMY1bWjASbiSO2H6bOZpYi5g8p-2eQP-EAi4vJmkGunpVii8ZPLxsgwtfp9Rd6PClNRGIpk",
     "device_name": "Alex's browser",
     "device_sensitive_origin": "https://app.agentio.sh",
-    "mac": "Uu8_CXZVdMZk5Qng2ZIPhTECXNz0yFUdiNVnGndwxRY"
+    "mac": "0oSgruuzqkS9xIyM5c0eofIqS-UqeoYwt_HYH5GVOmw"
   }
 }

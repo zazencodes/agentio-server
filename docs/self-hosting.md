@@ -6,7 +6,7 @@ The agentio server is one Go binary, run as a Docker container you build from it
 
 The server and the wire protocol are published as source ([zazencodes/agentio-server](https://github.com/zazencodes/agentio-server)); there are no prebuilt server binaries or images. The `agentio` CLI and the web app are proprietary, distributed as builds only:
 
-- **The official CLI works with your server.** On each computer, `agentio login --server https://agentio.example.com`. Pairing, sealing, signatures and the pinned keys are the same as with the hosted service: whoever runs the server, including you, can neither read what your agents and your browser say to each other nor get text or decisions into your agents (docs/api.md §5, §6, §9).
+- **The official CLI works with your server.** On each computer, `agentio login --server https://agentio.example.com --app https://app.example.com`, naming the web app you host for it ([The web app](#the-web-app)); the pairing link and QR code open it. Pairing, sealing, signatures and the pinned keys are the same as with the hosted service: whoever runs the server, including you, can neither read what your agents and your browser say to each other nor get text or decisions into your agents (docs/api.md §5, §6, §9).
 - **The official web app works with your server, hosted by you.** Every release has the built app, `agentio-web-<version>.tar.gz`: a static site you put on any web host with a file naming your server ([The web app](#the-web-app)). The app at app.agentio.sh talks only to api.agentio.sh. Your server itself is an API and relay only; it serves no web pages. Manage accounts with `agentio-server user …` and the API; people log in to the web app with their username and password.
 - **Your own clients** can implement [docs/api.md](api.md), which documents everything the server sends and receives, including pairing, sealed frames and the signed envelopes (with shared test vectors in `protocol/testdata/`).
 
@@ -31,7 +31,7 @@ Put a reverse proxy that terminates TLS in front of it ([below](#reverse-proxy-a
 
 ## Configuration
 
-All settings are documented in [`deploy/examples/server.yml`](../deploy/examples/server.yml). Every key can also be an environment variable: `public-url` → `AGENTIO_PUBLIC_URL`. Unknown keys are an error. `public-url` must be the public URL users reach. Pairing codes carry the URL the CLI was given with `agentio login --server`.
+All settings are documented in [`deploy/examples/server.yml`](../deploy/examples/server.yml). Every key can also be an environment variable: `public-url` → `AGENTIO_PUBLIC_URL`. Unknown keys are an error. `public-url` must be the public URL users reach. Pairing links carry the URL the CLI was given with `agentio login --server`.
 
 Storage: one SQLite database, `agentio.db` in `data-dir`. Migrations run automatically at startup. The server runs as a single instance (relay sockets, presence and pairings in flight live in memory), and its database holds only accounts, tokens and public keys, so it needs no database server. Put it behind one reverse proxy.
 
@@ -73,7 +73,7 @@ echo '{"server": "https://agentio.example.com"}' > agentio-web-v1.2.3/agentio.js
 sudo mkdir -p /srv && sudo cp -R agentio-web-v1.2.3 /srv/agentio-web
 ```
 
-**`agentio.json`** is the only setting, read by the app and its service worker when they start. It must be exactly `{"server": "<your server>"}`: https, scheme, host and an optional port only (no path, no trailing slash), the same URL you give `agentio login --server`, since the app pairs only with codes naming exactly that server. `http` works only for a server on `localhost` or `127.0.0.1`, for local testing. Without a valid file the app shows what's wrong and does nothing else; it never falls back to another server. Whoever hosts the app decides which server it trusts, as they already decide its code; your agentio server has no say in it. The release bundle has no `agentio.json`, so updating means replacing every other file and keeping yours.
+**`agentio.json`** is the only setting, read by the app and its service worker when they start. It must be exactly `{"server": "<your server>"}`: https, scheme, host and an optional port only (no path, no trailing slash), the same URL you give `agentio login --server`, since the app pairs only with links naming exactly that server. `http` works only for a server on `localhost` or `127.0.0.1`, for local testing. Without a valid file the app shows what's wrong and does nothing else; it never falls back to another server. Whoever hosts the app decides which server it trusts, as they already decide its code; your agentio server has no say in it. The release bundle has no `agentio.json`, so updating means replacing every other file and keeping yours.
 
 The web host must:
 
@@ -93,7 +93,7 @@ app.example.com {
 		X-Content-Type-Options nosniff
 		Referrer-Policy no-referrer
 		Strict-Transport-Security "max-age=31536000"
-		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		Permissions-Policy "camera=(self), microphone=(), geolocation=()"
 	}
 	@static path /static/*
 	header @static Cache-Control "public, max-age=31536000, immutable"

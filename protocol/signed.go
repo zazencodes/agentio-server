@@ -28,6 +28,8 @@ const (
 	KindCancel   = "cancel"   // device → host: stop a command that hasn't been delivered
 	KindDelete   = "delete"   // device → host: delete a session or project and its history
 	KindAway     = "away"     // device → host
+	KindRead     = "read"     // device → host: advance a session's shared read position
+	KindArchive  = "archive"  // device → host: archive/restore an item; pending requests are declined atomically
 
 	KindSettings       = "settings"        // host → device: the notification settings file, inside updates
 	KindSettingsChange = "settings_change" // device → host: the complete desired settings file
@@ -61,12 +63,34 @@ type SignedRequest struct {
 
 // SignedCommand is a user's message to an agent session.
 type SignedCommand struct {
+	Run     string `json:"run,omitempty"` // required for stop; binds it to the run the browser saw
+	Intent  string `json:"intent,omitempty"`
 	ID      string `json:"id"`
 	Host    string `json:"host"`
 	Session string `json:"session"`
 	Text    string `json:"text"`
 	Created int64  `json:"created"`
 	Expires int64  `json:"expires"`
+}
+
+// SignedRead advances the shared read mark through an existing timeline position.
+type SignedRead struct {
+	Host    string `json:"host"`
+	Session string `json:"session"`
+	Pos     int64  `json:"pos"`
+	Created int64  `json:"created"`
+	Expires int64  `json:"expires"`
+}
+
+// SignedArchive binds an archive/restore to one item and, for a request, its exact payload.
+type SignedArchive struct {
+	ID          string `json:"id"`
+	Host        string `json:"host"`
+	Item        string `json:"item"`
+	RequestHash string `json:"request_hash,omitempty"`
+	Archived    bool   `json:"archived"`
+	Created     int64  `json:"created"` // Unix milliseconds; ties ordered by ID
+	Expires     int64  `json:"expires"` // Unix seconds
 }
 
 // SignedResponse answers one request. RequestHash binds it to the exact request payload the user saw.
@@ -316,20 +340,20 @@ func NewRandomID(prefix string) string {
 
 // PairMAC is the device's proof that it read the pairing secret K from the terminal's code. It binds every device key
 // and the plaintext name and origin.
-func PairMAC(k, pairID, hostKey, deviceKey, deviceSensitiveKey, deviceEncKey, deviceName, sensitiveOrigin string) (string, error) {
+func PairMAC(k, pairID, deviceKey, deviceSensitiveKey, deviceEncKey, deviceName, sensitiveOrigin string) (string, error) {
 	key, err := b64.DecodeString(k)
 	if err != nil || len(key) != 32 {
 		return "", errors.New("pairing secret must be 32 bytes, base64url")
 	}
 	m := hmac.New(sha256.New, key)
-	m.Write([]byte("agentio/v1/pair\n" + pairID + "\n" + hostKey + "\n" + deviceKey + "\n" + deviceSensitiveKey + "\n" + deviceEncKey + "\n" +
+	m.Write([]byte("agentio/v1/pair\n" + pairID + "\n" + deviceKey + "\n" + deviceSensitiveKey + "\n" + deviceEncKey + "\n" +
 		deviceName + "\n" + sensitiveOrigin))
 	return b64.EncodeToString(m.Sum(nil)), nil
 }
 
 // CheckPairMAC reports whether mac is PairMAC of the same inputs.
-func CheckPairMAC(mac, k, pairID, hostKey, deviceKey, deviceSensitiveKey, deviceEncKey, deviceName, sensitiveOrigin string) bool {
-	want, err := PairMAC(k, pairID, hostKey, deviceKey, deviceSensitiveKey, deviceEncKey, deviceName, sensitiveOrigin)
+func CheckPairMAC(mac, k, pairID, deviceKey, deviceSensitiveKey, deviceEncKey, deviceName, sensitiveOrigin string) bool {
+	want, err := PairMAC(k, pairID, deviceKey, deviceSensitiveKey, deviceEncKey, deviceName, sensitiveOrigin)
 	return err == nil && hmac.Equal([]byte(mac), []byte(want))
 }
 

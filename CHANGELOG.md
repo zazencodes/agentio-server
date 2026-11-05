@@ -1,0 +1,30 @@
+# Changelog
+
+## [Unreleased]
+
+## [0.3.0] - 2026-11-04
+
+### Added
+
+- Added sealed protocol read/archive actions, declined and stopped request outcomes, and cooperative stop commands with shared session read and stop state
+
+### Breaking Changes
+
+- Changed the pairing MAC to leave out the host key, which the browser now learns from the sealed confirmation: browsers and computers must both be updated to pair
+
+### Changed
+
+- Changed the pairing code in the API docs to a link to the web app's `/pair` page with the pairing ID and secret in its fragment, which the CLI also shows as a QR code. Self-hosters now pass `agentio login --server … --app …` with the web app they host
+- Changed the web app's `Permissions-Policy` in the self-hosting docs to allow the camera on the app's own origin (`camera=(self)`), for its pairing QR scanner
+
+## [0.2.0] - 2026-10-24
+
+### Added
+
+- Added the `remote` field to the protocol's session record, for remote control. The server relays sessions sealed, so it neither reads nor stores the field
+
+## [0.1.0] - 2026-10-23
+
+### Added
+
+- First public release: the core agentio server (accounts, pairing, the sealed relay, Web Push, rate limits, SQLite, admin commands), the shared protocol, and self-hosting with Docker Compose

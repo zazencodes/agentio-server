@@ -27,7 +27,6 @@ type vectors struct {
 	Pair struct {
 		K                  string `json:"k"`
 		PairID             string `json:"pair_id"`
-		HostKey            string `json:"host_key"`
 		DeviceKey          string `json:"device_key"`
 		DeviceSensitiveKey string `json:"device_sensitive_key"`
 		DeviceEncKey       string `json:"device_enc_key"`
@@ -87,7 +86,7 @@ func TestVectors(t *testing.T) {
 		}
 	}
 	p := v.Pair
-	if !CheckPairMAC(p.MAC, p.K, p.PairID, p.HostKey, p.DeviceKey, p.DeviceSensitiveKey, p.DeviceEncKey, p.DeviceName, p.SensitiveOrigin) {
+	if !CheckPairMAC(p.MAC, p.K, p.PairID, p.DeviceKey, p.DeviceSensitiveKey, p.DeviceEncKey, p.DeviceName, p.SensitiveOrigin) {
 		t.Fatal("pair MAC does not verify")
 	}
 }
@@ -123,9 +122,9 @@ func writeVectors(t *testing.T) {
 		PayloadHash string   `json:"payload_hash"`
 	}{"go", *env, string(payload), env.PayloadHash()})
 	p := &v.Pair
-	p.K, p.PairID, p.HostKey, p.DeviceKey, p.DeviceSensitiveKey, p.DeviceEncKey, p.DeviceName, p.SensitiveOrigin = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
-		"pair_vector", v.PublicKey, v.PublicKey, v.PublicKey, v.PublicKey, "Alex's browser", "https://app.agentio.sh"
-	if p.MAC, err = PairMAC(p.K, p.PairID, p.HostKey, p.DeviceKey, p.DeviceSensitiveKey, p.DeviceEncKey, p.DeviceName, p.SensitiveOrigin); err != nil {
+	p.K, p.PairID, p.DeviceKey, p.DeviceSensitiveKey, p.DeviceEncKey, p.DeviceName, p.SensitiveOrigin = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
+		"pair_vector", v.PublicKey, v.PublicKey, v.PublicKey, "Alex's browser", "https://app.agentio.sh"
+	if p.MAC, err = PairMAC(p.K, p.PairID, p.DeviceKey, p.DeviceSensitiveKey, p.DeviceEncKey, p.DeviceName, p.SensitiveOrigin); err != nil {
 		t.Fatal(err)
 	}
 	data, _ := json.MarshalIndent(v, "", "  ")

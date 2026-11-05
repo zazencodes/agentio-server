@@ -60,6 +60,16 @@ func (s *Store) AddUser(ctx context.Context, u *User) error {
 	return err
 }
 
+// TxAddUser creates a user inside tx. Returns ErrConflict if the username exists.
+func (s *Store) TxAddUser(ctx context.Context, tx *sql.Tx, u *User) error {
+	_, err := tx.ExecContext(ctx, `INSERT INTO users (`+userColumns+`) VALUES (?, ?, ?, ?, ?)`,
+		u.ID, u.Username, u.PasswordHash, u.Role, u.Created)
+	if isUniqueViolation(err) {
+		return ErrConflict
+	}
+	return err
+}
+
 func isUniqueViolation(err error) bool {
 	if err == nil {
 		return false

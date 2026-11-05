@@ -63,10 +63,10 @@ func TestPairingNeedsAccount(t *testing.T) {
 	h := newHarness(t)
 	th, d := newTestHost(t, "mbp"), newTestDevice(t, "browser")
 	p := h.startPairing(th, "")
-	h.claim(p, th, d, "").expectError(ErrUnauthorized)
+	h.claim(p, d, "").expectError(ErrUnauthorized)
 	mustEqual(t, "users", h.sqlInt(`SELECT COUNT(*) FROM users`), 0)
 	_, token := h.addUser("alex")
-	h.claim(p, th, d, token).expect(http.StatusOK)
+	h.claim(p, d, token).expect(http.StatusOK)
 }
 
 // `agentio devices add`: the machine's own token starts the pairing, and only a signed-in browser of the machine's
@@ -79,7 +79,7 @@ func TestPairingDevicesAdd(t *testing.T) {
 	h.pair(th, newTestDevice(t, "first"), token)
 
 	p := h.startPairing(th, th.token)
-	h.claim(p, th, newTestDevice(t, "eve's"), eve).expectError(errOtherAccount)
+	h.claim(p, newTestDevice(t, "eve's"), eve).expectError(errOtherAccount)
 	res := h.pair(th, newTestDevice(t, "second"), token)
 	if res.device.Username != "alex" || res.confirm.Token != "" {
 		t.Fatalf("devices add handed out a token: %+v %+v", res.device, res.confirm)
@@ -98,8 +98,8 @@ func TestPairingHostTokenCantBecomeUserToken(t *testing.T) {
 
 	thief := newTestDevice(t, "thief")
 	p := h.startPairing(th, th.token)
-	h.claim(p, th, thief, "").expectError(ErrUnauthorized)
-	h.claim(p, th, thief, th.token).expectError(errHostTokenNotAllowed)
+	h.claim(p, thief, "").expectError(ErrUnauthorized)
+	h.claim(p, thief, th.token).expectError(errHostTokenNotAllowed)
 	h.do(http.MethodPost, "/api/v1/pair/"+p.id+"/confirm", protocol.PairConfirm{Secret: p.secret, Confirm: "junk"}).expectError(ErrBadRequest)
 	if st := h.pairPoll(p.id, p.secret, ""); st.Status != protocol.PairPending {
 		t.Fatalf("pairing %+v after refused claims", st)
@@ -132,7 +132,7 @@ func TestPairingLimits(t *testing.T) {
 		mustEqual(t, "status", h.pairPoll(p.id, p.secret, "").Status, protocol.PairPending)
 	}
 	// Claimed pairings don't count against the IP.
-	h.claim(started[1], th, newTestDevice(t, "browser"), token).expect(http.StatusOK)
+	h.claim(started[1], newTestDevice(t, "browser"), token).expect(http.StatusOK)
 	h.startPairing(th, "")
 	mustEqual(t, "claimed pairing", h.pairPoll(started[1].id, started[1].secret, "").Status, protocol.PairClaimed)
 	mustEqual(t, "next oldest", h.pairPoll(started[2].id, started[2].secret, "").Status, protocol.PairPending)
@@ -194,8 +194,8 @@ func TestPairingClaimedOnce(t *testing.T) {
 	_, token := h.addUser("alex")
 	th := newTestHost(t, "mbp")
 	p := h.startPairing(th, "")
-	h.claim(p, th, newTestDevice(t, "first"), token).expect(http.StatusOK)
-	h.claim(p, th, newTestDevice(t, "second"), token).expectError(errPairingClaimed)
+	h.claim(p, newTestDevice(t, "first"), token).expect(http.StatusOK)
+	h.claim(p, newTestDevice(t, "second"), token).expectError(errPairingClaimed)
 }
 
 // A browser profile belongs to one account and keeps its keys until it is unpaired.
@@ -208,14 +208,14 @@ func TestPairingDeviceIdentity(t *testing.T) {
 
 	other := newTestHost(t, "eve-mbp")
 	p := h.startPairing(other, "")
-	h.claim(p, other, d, eve).expectError(errOtherAccount)
+	h.claim(p, d, eve).expectError(errOtherAccount)
 
 	changed := *d
 	changed.enc, _ = protocol.NewEncKey()
 	changed.encKey = protocol.EncodeEncKey(changed.enc.PublicKey())
 	two := newTestHost(t, "two")
 	p = h.startPairing(two, "")
-	h.claim(p, two, &changed, alex).expectError(errDeviceKeyChanged)
+	h.claim(p, &changed, alex).expectError(errDeviceKeyChanged)
 
 	h.do(http.MethodDelete, "/api/v1/devices/"+d.id, nil, bearer(alex)).expect(http.StatusOK)
 	h.pair(two, &changed, alex)
@@ -227,7 +227,7 @@ func TestPairingRejected(t *testing.T) {
 	th, d := newTestHost(t, "mbp"), newTestDevice(t, "browser")
 	p := h.startPairing(th, "")
 	var claimed protocol.PairStarted
-	h.claim(p, th, d, token).expect(http.StatusOK).decode(&claimed)
+	h.claim(p, d, token).expect(http.StatusOK).decode(&claimed)
 	h.do(http.MethodPost, "/api/v1/pair/"+p.id+"/reject", map[string]string{"secret": "wrong"}).expectError(ErrNotFound)
 	h.do(http.MethodPost, "/api/v1/pair/"+p.id+"/reject", map[string]string{"secret": p.secret}).expect(http.StatusOK)
 	if st := h.pairPoll(p.id, claimed.Secret, ""); st.Status != protocol.PairRejected || st.Confirm != "" || st.Host != nil {
@@ -252,7 +252,7 @@ func TestPairingExpires(t *testing.T) {
 	if st := h.pairPoll(p.id, p.secret, "&wait=30"); st.Status != protocol.PairExpired {
 		t.Fatalf("poll %+v", st)
 	}
-	h.claim(p, th, d, token).expectError(errExpired)
+	h.claim(p, d, token).expectError(errExpired)
 	// Expired pairings are forgotten after a while.
 	h.srv.pairings.prune(time.Now().Add(pairingKeep))
 	h.do(http.MethodGet, "/api/v1/pair/"+p.id+"?secret="+p.secret, nil).expectError(ErrNotFound)
@@ -268,7 +268,7 @@ func TestPairingLongPollWakes(t *testing.T) {
 	go func() { done <- h.pairPoll(p.id, p.secret, "&wait=30") }()
 	time.Sleep(100 * time.Millisecond)
 	start := time.Now()
-	h.claim(p, th, d, token).expect(http.StatusOK)
+	h.claim(p, d, token).expect(http.StatusOK)
 	select {
 	case st := <-done:
 		if st.Status != protocol.PairClaimed || st.Claim == nil || time.Since(start) > 5*time.Second {
@@ -307,14 +307,14 @@ func TestPairingValidation(t *testing.T) {
 		"no mac":         func(c *protocol.PairClaim) { c.MAC = "" },
 	} {
 		t.Run(name, func(t *testing.T) {
-			c := claimBody(t, p, th, d)
+			c := claimBody(t, p, d)
 			mod(&c)
 			h.do(http.MethodPost, "/api/v1/pair/"+p.id+"/claim", c, bearer(token)).expectError(ErrBadRequest)
 		})
 	}
-	h.do(http.MethodPost, "/api/v1/pair/pair_unknown/claim", claimBody(t, p, th, d), bearer(token)).expectError(ErrNotFound)
+	h.do(http.MethodPost, "/api/v1/pair/pair_unknown/claim", claimBody(t, p, d), bearer(token)).expectError(ErrNotFound)
 	// None of that used the pairing up.
-	h.claim(p, th, d, token).expect(http.StatusOK)
+	h.claim(p, d, token).expect(http.StatusOK)
 	h.do(http.MethodPost, "/api/v1/pair/"+p.id+"/confirm", protocol.PairConfirm{Secret: p.secret}).expectError(ErrBadRequest)
 	h.do(http.MethodPost, "/api/v1/pair/"+p.id+"/confirm", protocol.PairConfirm{Secret: "wrong", Confirm: "x"}).expectError(ErrNotFound)
 }

@@ -80,7 +80,7 @@ that made the request. `IssuedToken` is `{"id","token","kind","label","expires"}
 
 ## 5. Pairing (`agentio login`, `agentio devices add`)
 
-Pairing exchanges public keys over the terminal's code, which the server never sees.
+Pairing exchanges public keys authenticated by a secret in the terminal's link, which the server never sees.
 
 1. The CLI creates (once) its host keys, a pairing ID `pair_…` (`NewRandomID`) and a 32-byte pairing secret `K`, and registers the pairing:
 
@@ -92,7 +92,7 @@ Pairing exchanges public keys over the terminal's code, which the server never s
 
    `host_key` must be new to the server unless the request carries that host's own token, and then `host_enc_key` must be the one the server already holds for it (`409` otherwise). Every pairing is claimed by a signed-in browser (step 3). Pairings live only in the server's memory and expire after 10 minutes; a restart loses them (start again). Each client IP (each /64 for IPv6) may hold a few unclaimed pairings at once; starting another replaces its oldest.
 
-2. It shows `agentio://pair?s=<url-encoded server base URL>&p=<pair id>&h=<host signing key>&k=<K>`. `K` is never sent to the server. The user pastes it into the browser's `/pair` form; it is never placed in a browser URL.
+2. It shows a pairing link to the web app's `/pair` page, as text and as a QR code: `<web app origin>/pair#k=<K>&p=<pair id>`. `K` is never sent to the server, and the code is in the fragment, so opening the link sends it to no web server either. The browser takes the code out of its address bar before the app starts and keeps it in memory; the link can also be pasted into the `/pair` form. The web app accepts only links to its own origin and claims on its one server, where a pairing from another server is unknown (`404`). The CLI uses `https://app.agentio.sh` for the hosted server and needs `--app` for any other. The link carries no host key, which keeps the QR code small: the browser learns the host's keys from the confirmation, which only the holder of `K` can seal (step 6).
 
 3. The browser creates (once per profile and server) its three device keys and claims:
 
@@ -103,7 +103,7 @@ Pairing exchanges public keys over the terminal's code, which the server never s
    ```
 
    * `sealed_name` = `seal(HKDF(K, "agentio/v1/pair-name"), device_name, aad = "agentio/v1/pair-name\n" + pair_id)` (section 6.1). `device_name` is 1–64 characters with no control characters; the host rejects (never truncates) anything else. The server only checks that `sealed_name` is at most 512 characters.
-   * `mac = base64url(HMAC-SHA256(K, "agentio/v1/pair\n" + pair_id + "\n" + host_key + "\n" + device_key + "\n" + device_sensitive_key + "\n" + device_enc_key + "\n" + device_name + "\n" + device_sensitive_origin))`.
+   * `mac = base64url(HMAC-SHA256(K, "agentio/v1/pair\n" + pair_id + "\n" + device_key + "\n" + device_sensitive_key + "\n" + device_enc_key + "\n" + device_name + "\n" + device_sensitive_origin))`.
    * `device_sensitive_origin` is the exact app origin (scheme, host and port; HTTPS, or `http://localhost:<port>` for development), bound for WebAuthn (section 9.6).
 
    A pairing can be claimed once (`409` after that), and only with a user token (`401` without one, `403` for a host token): a new machine joins that account. Claiming an existing host (`devices add`) needs a user token of that host's account (`409` for another account), so a host token can never be turned into a user token. No pairing creates an account or issues a user token.
@@ -134,7 +134,7 @@ Pairing exchanges public keys over the terminal's code, which the server never s
 
    `confirm` = `seal(HKDF(K, "agentio/v1/pair-confirm"), JSON of the pair Envelope, aad = "agentio/v1/pair-confirm\n" + pair_id)`. The pair envelope (kind `pair`, section 9.3) is signed by the host key. On confirm the server records the host (new machines), the device (if new to the account) and the link between them (`host_devices`), and the pairing is done.
 
-6. The browser opens the confirmation, checks the pair envelope against `host_key` from the code, that every device field is its own (keys, encryption key, origin and name), then pins the host: `{host_id, host_key, host_enc_key, host_name, server}`. The host's encryption key comes only from the signed confirmation.
+6. The browser opens the confirmation with `K`, so only the terminal can have made it. It checks that the pair envelope is signed by the `host_key` the envelope names, with `host` its key ID, for this pairing, and that every device field is its own (keys, encryption key, origin and name), then pins the host: `{host_id, host_key, host_enc_key, host_name, server}`. The host's keys come only from the sealed, signed confirmation, never from the server's view.
 
 Nothing about names, operating systems or versions reaches the server in plaintext.
 
@@ -282,7 +282,9 @@ The signature is ECDSA P-256/SHA-256 (ASN.1 DER, as Go's `ecdsa.SignASN1` produc
 | `settings` | host | section 10.6; travels inside `update` |
 | `sync` | device | `{"id","host","since","epoch","time"}` |
 | `timeline` | device | `{"id","host","session","before","limit","time"}` |
-| `command` | device | `{"id","host","session","text","created","expires"}` |
+| `command` | device | `{"id","host","session","text","intent"?:"stop","run"?,"created","expires"}` |
+| `read` | device | `{"host","session","pos","created","expires"}` |
+| `archive` | device | `{"id","host","item","request_hash"?,"archived","created","expires"}` |
 | `response` | device; the sensitive key when the request is `sensitive` | `{"request","request_hash","decision","text","time"}` |
 | `cancel` | device | `{"host","command","time"}` |
 | `delete` | device | `{"host","project"?,"session"?,"time"}` |
@@ -290,6 +292,11 @@ The signature is ECDSA P-256/SHA-256 (ASN.1 DER, as Go's `ecdsa.SignASN1` produc
 | `settings_change` | device (normal key) | `{"id","host","revision","defaults","projects":[{"id","values"}],"created","expires"}` |
 
 RPC IDs (`sync`, `timeline`) are `NewRandomID("rpc_")`. Command IDs are `NewRandomID("cmd_")`; `text` is trimmed by the browser before signing, 1–8000 characters; `expires` is at most 24 h after `created`. Request IDs (`req_…`) and event IDs (`evt_…`) are chosen by the bridge. A response's `request_hash` is the hex sha256 of the request envelope's payload bytes. Approvals take `approve` or `reject` (`text` optional, a reason); questions take `answer` with non-empty `text`.
+
+`read` advances the session's shared `read_pos` through an existing timeline position; it never moves backwards. Its times are Unix seconds and its lifetime is at most 24 h.
+`archive` archives (`archived:true`) or restores (`false`) a notification or request, preserving timeline history. Its `id` is an `out_` ID; `created` is Unix **milliseconds**, `expires` Unix seconds, at most 24 h later. Archive actions are ordered by `(created,id)` so delayed or duplicate actions cannot reverse newer ones. Request actions must bind `request_hash` to the exact signed request payload. Archiving a pending question or approval atomically records `declined`, wakes the caller with `decline`, and archives the item. A pending request is never silently hidden. Restoring preserves the declined outcome. The first answer, decline, stop, cancellation or expiry wins. Read/archive actions use the normal device key, including ignoring sensitive approvals; they never grant approval. Future timestamps beyond the clock skew and expired actions are refused.
+
+A command with `intent:"stop"`, the exact session `run` token the browser saw, and empty `text` is a cooperative stop request. The bridge records the explicit user instruction in the command, sets the session's `stop_requested` to its ID, disables further message input and remote control, resolves pending requests as `stopped`, and immediately wakes asks, approvals and remote waits with `stop`. A held ask is woken too. Cleanup notifications and status calls remain available; new asks and waits return `stop` during cleanup. This preserves history and session ownership: only the agent ending its session or its owner disconnecting marks it ended. A new check-in after ending starts a fresh `run` token with no stop request; a delayed stop for an earlier run fails. The bridge never terminates a process or interrupts other tools. While the agent works outside Agent IO, the retained instruction reaches its next MCP result. Stops use command IDs, signatures, replay protection, outbox confirmation and delivery acknowledgment; a second stop for the same run fails, and an accepted stop cannot be canceled. Its signed expiry limits acceptance by the bridge; once accepted it stays deliverable until the session ends.
 
 Optional `prefill` is an exact editable draft for questions only: valid UTF-8, at most 8000 Unicode code points, without NUL. Empty drafts are allowed. Approvals reject any supplied prefill. The bridge rejects invalid drafts without truncating them. Clients render only the verified value and keep edits by request ID through refreshes. The response hash binds the exact draft too.
 
@@ -299,6 +306,7 @@ Every device frame first passes section 6.2 (pinned device, fresh, unseen, decry
 
 * **command**: signed by the frame's device (a pinned device); `host` is this host; `created` is at most 2 minutes in the future and `expires` hasn't passed; `id` not seen before (seen IDs are kept until they expire). A replayed ID is not handled again, but the bridge still answers with the command's current item. Any other failure is recorded as a `failed` command item with `"Rejected: …"` and logged, and never reaches the agent.
 * **response**: signed with the right key for the request's sensitivity (the WebAuthn scheme for browsers, 9.6); `request` is a request this bridge is still waiting on and `request_hash` matches the payload it signed; the decision fits the request type. A response to a request that is no longer pending is answered with that request's item.
+* **read**, **archive**: signed by the frame's device with its normal key, for this host, current and within the lifetimes above. A read position must be positive and no greater than the session's newest timeline position. An archive names a notification or request in this host's history and binds a request's payload hash; a pending archive declines and wakes its caller atomically. Duplicate/older actions return the current signed record.
 * **cancel**, **delete**: `host` is this host. A cancel stops a command that hasn't been delivered. A delete removes the session (or the project and all its sessions) and its history from the computer; it is refused when its signed `time` is more than 2 minutes in the future, more than 24 hours old, or earlier than the target's creation (so a delayed delete can't erase history recreated since).
 * **away**: `host` is this host; newer than the last applied setting (device or local `agentio away`); at most 2 minutes in the future.
 * **settings_change**: signed by the device's normal key (no WebAuthn assertion); `host` is this host; `created` at most 2 minutes in the future and `expires` not passed; `id` not seen before (kept until `expires`); the settings file is valid and its revision equals `revision`; every project ID names a project this bridge registered or one already in the file; only known keys with valid values. Anything else is rejected, logged, counted in `agentio doctor` and reported in the next snapshot's `change` with the reason (for example "its settings changed since you looked"). A replayed ID is ignored. Writers of the settings file (`agentio config`, `init`, `uninstall`, the bridge) hold an OS lock across read, check and atomic write.
@@ -379,7 +387,7 @@ Item (one entry of a session's timeline; exactly one of `event`, `request`, `com
 
 The bridge truncates titles (200 characters; session titles 120), event messages and request bodies (4000 bytes), and `input_reason` (200) before signing.
 
-Request `status`: `pending`, `approved`, `rejected`, `answered`, `expired`, `canceled`. The first valid response wins.
+Request `status`: `pending`, `approved`, `rejected`, `answered`, `expired`, `canceled`, `declined`, `stopped`. The first valid response wins.
 
 Command `state` moves strictly forward:
 
@@ -393,6 +401,8 @@ Command `state` moves strictly forward:
 | `canceled` | Canceled by the user before delivery |
 
 Before the bridge has it, the browser shows "Sending" for a command in its own outbox. Nothing is reported `delivered` before a complete successful MCP stdout write. MCP has no result-receipt protocol; a crash after writing but before acknowledgment may duplicate a message. A session that ends with commands not yet delivered moves them to `failed` (`"The session ended before this could be delivered"`); the user can retry (the browser signs a new command with the same text) or discard (a local dismissal).
+
+Sessions also carry `run` (a fresh token for each run), `read_pos` (shared highest read timeline position, omitted for zero) and `stop_requested` (the accepted stop command ID, omitted when absent). Items may carry `archive:{"id","archived","created"}` with the latest archive action and its millisecond timestamp. Commands may carry `intent:"stop"`. Request response records may carry `decision:"decline"` or `"stop"` in addition to ordinary answers; these are control outcomes, never typed answers or approval.
 
 `input` says what a reply will do right now: `queue` (it waits for the agent's next agentio MCP tool result) or `unavailable` (with `input_reason`). Replies never start or interrupt a turn.
 
@@ -426,6 +436,8 @@ Live: whenever a project, session or item changes, or the settings snapshot or a
 | `command` | `update` with the command item (sent to every device) |
 | `response` | `update` with the request item (every device) |
 | `cancel` | `update` with the command item (every device) |
+| `read` | `update` with the shared session read position (every device) |
+| `archive` | `update` with the item and its outcome/archive state (every device) |
 | `delete` | `update` with `deleted` (every device) |
 | `away` | `update` with `away` (every device) |
 | `settings_change` | `update` with the new `settings` snapshot, whose `change` reports the outcome (every device) |
@@ -470,7 +482,9 @@ Remote control is off for every session until its agent turns it on with `agenti
 
 ### 11.1 Mirror
 
-IndexedDB holds, per pinned host, the decrypted mirror of what it has synced: machine info, projects, sessions, items, the settings snapshot, the away state, the `epoch`, the `cursor` and when it last synced. Records merge by `seq` (a higher `seq` replaces a lower one; deletions remove and leave a tombstone until a sync reply's cursor passes them); a full snapshot replaces the host's mirror (keeping local read state). Only `sync` replies move the cursor, so a missed live update is always fetched again, and a live record, or a record of an incremental sync reply, whose `seq` is at or below the cursor is ignored: the synced state already reflects or supersedes it (older items come from `timeline`). A session whose project, or an item whose session or project, isn't in the mirror is ignored in anything but a full snapshot. A tab accepts a sync reply only while the mirror is still in the epoch the request was sent with, so a reply that another tab's newer snapshot has overtaken never moves the mirror back. Read state (unread counts, "mark all read") is local to the browser. Logging out or unpairing clears the mirror and the outbox.
+IndexedDB holds, per pinned host, the decrypted mirror of what it has synced: machine info, projects, sessions, items, the settings snapshot, the away state, the `epoch`, the `cursor` and when it last synced. Records merge by `seq` (a higher `seq` replaces a lower one; deletions remove and leave a tombstone until a sync reply's cursor passes them); a full snapshot replaces the host's mirror. Only `sync` replies move the cursor, so a missed live update is always fetched again, and a live record, or a record of an incremental sync reply, whose `seq` is at or below the cursor is ignored: the synced state already reflects or supersedes it (older items come from `timeline`). A session whose project, or an item whose session or project, isn't in the mirror is ignored in anything but a full snapshot. A tab accepts a sync reply only while the mirror is still in the epoch the request was sent with, so a reply that another tab's newer snapshot has overtaken never moves the mirror back. Logging out or unpairing clears the mirror and the outbox.
+
+Read state is shared through the bridge’s signed session `read_pos`. Opening a visible session or choosing Mark all read signs a `read` action through its newest loaded item. Until the host confirms it, its shared unread count remains authoritative. Notifications other than progress after that position count unread; archived items do not. New browser profiles inherit the host’s read state. Pending requests keep their own unresolved count until answered, declined, stopped, canceled or expired.
 
 ### 11.2 Connecting
 
@@ -482,24 +496,26 @@ Notifications come from Web Push (section 7.3) when no tab is open, and from liv
 
 ### 11.4 Outbox
 
-Signed commands, responses, cancels, deletes, away settings and settings changes go into an outbox in IndexedDB. Each entry is sealed into a new frame and sent when its host is online (on `hello`, on `presence` online, and when created), and stays until a signed update from the host confirms it:
+Signed commands, responses, cancels, deletes, read marks, archives, away settings and settings changes go into an outbox in IndexedDB. Each entry is sealed into a new frame and sent when its host is online (on `hello`, on `presence` online, and when created), and stays until a signed update from the host confirms it:
 
 | Entry | Confirmed by |
 |---|---|
 | command | an item for that command ID |
 | response | the request item no longer `pending` |
 | cancel | the command item in a final state |
+| read | the session’s `read_pos` is at least the signed position (or its absence after full sync) |
+| archive | the item’s archive `(created,id)` is at least the signed action’s |
 | delete | `deleted` naming that project or session, or it being absent after a full sync |
 | away | `away.time` at least the entry's `time` |
 | settings_change | a snapshot whose `change.id` is the entry's `id` |
 
-Commands and deletes keep 24 hours (the bridge refuses older deletes) and settings changes their 7 days; expired entries are failed locally ("Not sent: alex-mbp was offline until it expired"). The bridge de-duplicates by ID, so sending an entry again is always safe.
+Commands, deletes, read marks and archives keep 24 hours (the bridge refuses older deletes) and settings changes their 7 days; expired entries are failed locally ("Not sent: alex-mbp was offline until it expired"). The bridge de-duplicates commands by ID, read positions monotonically, and archives by their ordered action stamp, so sending an entry again is safe.
 
 ---
 
 ## 12. Conventions
 
-* The server is an API and relay only. It serves no web pages, installers or binaries: `GET /` is `404` with code `no_web_pages`, and other unknown paths `404` with `not_found`. The web app is a separate static site that calls the server cross-origin (every response allows any origin; credentials are tokens, never cookies). It takes the one server it talks to from `/agentio.json` on its own origin, `{"server": "https://agentio.example.com"}`, written by whoever hosts it (docs/self-hosting.md), never from the server: nothing the server says reaches a command the app shows or the server a pairing code must name (§5).
+* The server is an API and relay only. It serves no web pages, installers or binaries: `GET /` is `404` with code `no_web_pages`, and other unknown paths `404` with `not_found`. The web app is a separate static site that calls the server cross-origin (every response allows any origin; credentials are tokens, never cookies). It takes the one server it talks to from `/agentio.json` on its own origin, `{"server": "https://agentio.example.com"}`, written by whoever hosts it (docs/self-hosting.md), never from the server: nothing the server says reaches a command the app shows or the server a pairing link must name (§5).
 * Lists are wrapped (`{"hosts":[]}`) and never `null`.
 * Request logging records the method, the route template, the status and the duration: never bodies, query strings, frames or tokens.
-* Self-hosted users run `agentio login --server https://their.server`.
+* Self-hosted users run `agentio login --server https://their.server --app https://their.web.app`.

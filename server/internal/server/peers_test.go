@@ -121,7 +121,7 @@ func (h *harness) startPairing(th *testHost, hostToken string) *testPairing {
 }
 
 // claimBody is the device's claim for a pairing, sealed and MACed with K.
-func claimBody(t *testing.T, p *testPairing, th *testHost, d *testDevice) protocol.PairClaim {
+func claimBody(t *testing.T, p *testPairing, d *testDevice) protocol.PairClaim {
 	t.Helper()
 	nameKey, err := protocol.SecretKey(p.k, protocol.InfoPairName)
 	if err != nil {
@@ -131,7 +131,7 @@ func claimBody(t *testing.T, p *testPairing, th *testHost, d *testDevice) protoc
 	if err != nil {
 		t.Fatal(err)
 	}
-	mac, err := protocol.PairMAC(p.k, p.id, th.key, d.key, d.sensitiveKey, d.encKey, d.name, testOrigin)
+	mac, err := protocol.PairMAC(p.k, p.id, d.key, d.sensitiveKey, d.encKey, d.name, testOrigin)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -139,13 +139,13 @@ func claimBody(t *testing.T, p *testPairing, th *testHost, d *testDevice) protoc
 		SealedName: sealedName, MAC: mac}
 }
 
-func (h *harness) claim(p *testPairing, th *testHost, d *testDevice, userToken string) *response {
+func (h *harness) claim(p *testPairing, d *testDevice, userToken string) *response {
 	h.t.Helper()
 	var headers []hdr
 	if userToken != "" {
 		headers = append(headers, bearer(userToken))
 	}
-	return h.do(http.MethodPost, "/api/v1/pair/"+p.id+"/claim", claimBody(h.t, p, th, d), headers...)
+	return h.do(http.MethodPost, "/api/v1/pair/"+p.id+"/claim", claimBody(h.t, p, d), headers...)
 }
 
 func (h *harness) pairPoll(id, secret, query string) protocol.PairStatus {
@@ -164,7 +164,7 @@ func confirmation(t *testing.T, p *testPairing, th *testHost, claim *protocol.Pa
 	if err != nil {
 		t.Fatalf("opening the sealed name: %v", err)
 	}
-	if !protocol.CheckPairMAC(claim.MAC, p.k, p.id, th.key, claim.DeviceKey, claim.DeviceSensitiveKey, claim.DeviceEncKey, string(name), claim.DeviceSensitiveOrigin) {
+	if !protocol.CheckPairMAC(claim.MAC, p.k, p.id, claim.DeviceKey, claim.DeviceSensitiveKey, claim.DeviceEncKey, string(name), claim.DeviceSensitiveOrigin) {
 		t.Fatal("the relayed claim's MAC doesn't verify")
 	}
 	env, err := protocol.Sign(th.sign, th.id, protocol.KindPair, protocol.SignedPair{Pair: p.id, Host: th.id, HostKey: th.key, HostEncKey: th.encKey,
@@ -195,7 +195,7 @@ func (h *harness) pair(th *testHost, d *testDevice, userToken string) pairResult
 	h.t.Helper()
 	p := h.startPairing(th, th.token)
 	var claimed protocol.PairStarted
-	h.claim(p, th, d, userToken).expect(http.StatusOK).decode(&claimed)
+	h.claim(p, d, userToken).expect(http.StatusOK).decode(&claimed)
 	st := h.pairPoll(p.id, p.secret, "")
 	if st.Status != protocol.PairClaimed || st.Claim == nil || st.Claim.Device != d.id {
 		h.t.Fatalf("host poll %+v", st)

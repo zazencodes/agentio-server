@@ -82,15 +82,15 @@ func TestWebAuthnResponse(t *testing.T) {
 
 func TestWebPairMACBindsOrigin(t *testing.T) {
 	k := NewSecret()
-	mac, err := PairMAC(k, "pair_1", "host", "device", "sensitive", "enc", "Browser", "https://app.agentio.sh")
+	mac, err := PairMAC(k, "pair_1", "device", "sensitive", "enc", "Browser", "https://app.agentio.sh")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !CheckPairMAC(mac, k, "pair_1", "host", "device", "sensitive", "enc", "Browser", "https://app.agentio.sh") {
+	if !CheckPairMAC(mac, k, "pair_1", "device", "sensitive", "enc", "Browser", "https://app.agentio.sh") {
 		t.Fatal("MAC rejected")
 	}
 	for _, origin := range []string{"", "https://evil.example"} {
-		if CheckPairMAC(mac, k, "pair_1", "host", "device", "sensitive", "enc", "Browser", origin) {
+		if CheckPairMAC(mac, k, "pair_1", "device", "sensitive", "enc", "Browser", origin) {
 			t.Fatal("origin substitution accepted")
 		}
 	}
