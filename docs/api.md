@@ -394,7 +394,7 @@ Command `state` moves strictly forward:
 | State | Meaning (what the browser says) |
 |---|---|
 | `received` | The bridge has it ("On alex-mbp") |
-| `pending` | Held for the agent; `state_detail` says when it will see it ("Available at the next agentio tool call") |
+| `pending` | Held for the agent; `state_detail` says what happens next: "Asked the agent to pick this up", or "Available at the next agentio tool call", or that a wake failed and why |
 | `delivered` | Written to the agentio MCP result transport; client/model receipt is unconfirmed |
 | `failed` | Could not be delivered; `state_detail` says why |
 | `expired` | Not delivered before `expires` (24 h) |
@@ -404,7 +404,7 @@ Before the bridge has it, the browser shows "Sending" for a command in its own o
 
 Sessions also carry `run` (a fresh token for each run), `read_pos` (shared highest read timeline position, omitted for zero) and `stop_requested` (the accepted stop command ID, omitted when absent). Items may carry `archive:{"id","archived","created"}` with the latest archive action and its millisecond timestamp. Commands may carry `intent:"stop"`. Request response records may carry `decision:"decline"` or `"stop"` in addition to ordinary answers; these are control outcomes, never typed answers or approval.
 
-`input` says what a reply will do right now: `queue` (it waits for the agent's next agentio MCP tool result) or `unavailable` (with `input_reason`). Replies never start or interrupt a turn.
+`input` says what a reply will do right now: `queue` (it reaches the agent in its next agentio MCP tool result) or `unavailable` (with `input_reason`). A reply never interrupts a turn. The computer may start one for it with a fixed nudge that doesn't contain the reply, which is nothing a relay or a browser can see or ask for.
 
 `remote` is true while the session is in remote control (section 10.7). `input_reason` then reads "Remote control is on: the agent picks it up at its next step", or "The agent is waiting for your message" while an `agentio_wait` call waits.
 

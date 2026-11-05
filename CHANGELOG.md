@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-11-05
+
+### Changed
+
+- Changed the API docs to say the computer may start an agent's turn for a reply, with a nudge that doesn't contain it; the server and the wire are unchanged
+
 ## [0.3.2] - 2026-11-05
 
 ### Changed
