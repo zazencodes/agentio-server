@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.4] - 2026-11-05
+
+### Added
+
+- Added an optional `quiet` field to timeline events in the API docs and protocol, marking an event that gets no push or alert; the server is unchanged, since it never reads events
+
 ## [0.3.3] - 2026-11-05
 
 ### Changed

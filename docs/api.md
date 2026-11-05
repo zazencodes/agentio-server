@@ -383,7 +383,7 @@ Item (one entry of a session's timeline; exactly one of `event`, `request`, `com
             "state":"delivered","state_detail":"Written to the agentio MCP tool result; client receipt is not confirmed","delivery":"queue","updated":1760659152}}
 ```
 
-`pos` is fixed when the item is created and orders the timeline (oldest first); `seq` changes with the item's state. A request item carries the host-signed request envelope (kind `request`); the browser shows its signed title, body, prefill, options and sensitivity and binds its answer to that envelope's payload hash. Event categories: `info`, `progress`, `completed`, `failed`, `attention`, `approval`, `question`, `warning`. Session `status`: `active` (an MCP connection owns it), `idle`, `ended`.
+`pos` is fixed when the item is created and orders the timeline (oldest first); `seq` changes with the item's state. A request item carries the host-signed request envelope (kind `request`); the browser shows its signed title, body, prefill, options and sensitivity and binds its answer to that envelope's payload hash. Event categories: `info`, `progress`, `completed`, `failed`, `attention`, `approval`, `question`, `warning`. An event with `quiet: true` is for the timeline only and gets no push or alert. Session `status`: `active` (an MCP connection owns it), `idle`, `ended`.
 
 The bridge truncates titles (200 characters; session titles 120), event messages and request bodies (4000 bytes), and `input_reason` (200) before signing.
 

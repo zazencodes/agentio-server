@@ -170,6 +170,7 @@ type EventItem struct {
 	Category string `json:"category"`
 	Title    string `json:"title"`
 	Message  string `json:"message"`
+	Quiet    bool   `json:"quiet,omitempty"` // for the timeline only: no push and no alert
 }
 
 // RequestItem is an approval or question: the host-signed request (kind request), whose payload hash a response
