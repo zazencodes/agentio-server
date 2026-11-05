@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-11-05
+
+### Changed
+
+- No changes to the server: this release keeps its version in step with the CLI
+
 ## [0.3.1] - 2026-11-05
 
 ### Changed
