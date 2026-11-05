@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-11-05
+
+### Changed
+
+- Changed the pairing confirmation in the API docs to default to yes
+
 ## [0.3.0] - 2026-11-04
 
 ### Added

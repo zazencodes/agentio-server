@@ -124,7 +124,7 @@ Pairing exchanges public keys authenticated by a secret in the terminal's link, 
 
    The host's view includes `"claim": {"device","device_key","device_sensitive_key","device_sensitive_origin","device_enc_key","sealed_name","mac"}` once claimed. The device's view includes, once confirmed, `"confirm": "<sealed confirmation>"`, `"host": {"id","key","enc_key"}` and `"username"`.
 
-5. The CLI opens `sealed_name`, checks the name and the MAC, asks `Pair with "Alex's browser"? [y/N]` in the terminal, pins the device, and confirms with its signed transcript, sealed so the server can't read the host name:
+5. The CLI opens `sealed_name`, checks the name and the MAC, asks `Pair with "Alex's browser"? [Y/n]` in the terminal, pins the device, and confirms with its signed transcript, sealed so the server can't read the host name:
 
    ```
    POST /api/v1/pair/{id}/confirm   {"secret":"<host poll secret>","confirm":"<sealed confirmation>"}
