@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -17,7 +16,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/coder/websocket"
 	"golang.org/x/crypto/bcrypt"
 
 	"agentio.sh/protocol"
@@ -60,14 +58,11 @@ func (l *logBuffer) String() string {
 
 // harness is a running test server with a temp-dir SQLite store, logging at debug level into logs.
 type harness struct {
-	t   *testing.T
-	srv *Server
-	ts  *httptest.Server
-	cfg *config.Config
-	db  *sql.DB // a second connection to the same database, for time travel
-	url string
-
-	logs *logBuffer // everything the server logged, at debug level
+	t    *testing.T
+	srv  *Server
+	db   *sql.DB // a second connection to the same database
+	url  string
+	logs *logBuffer
 }
 
 func newHarness(t *testing.T, configure ...func(*config.Config)) *harness {
@@ -75,13 +70,10 @@ func newHarness(t *testing.T, configure ...func(*config.Config)) *harness {
 	return newExtendedHarness(t, Extension{}, configure...)
 }
 
-// newExtendedHarness is newHarness with an extension.
 func newExtendedHarness(t *testing.T, ext Extension, configure ...func(*config.Config)) *harness {
 	t.Helper()
-	dir := t.TempDir()
 	cfg := config.Default()
-	cfg.HTTPAddr = ""
-	cfg.DataDir = dir
+	cfg.HTTPAddr, cfg.DataDir = "", t.TempDir()
 	for _, f := range configure {
 		f(cfg)
 	}
@@ -112,15 +104,7 @@ func newExtendedHarness(t *testing.T, ext Extension, configure ...func(*config.C
 		db.Close()
 		st.Close()
 	})
-	return &harness{t: t, srv: srv, ts: ts, cfg: cfg, db: db, url: ts.URL, logs: logs}
-}
-
-// sql runs a statement directly against the database (used to move times into the past).
-func (h *harness) sql(q string, args ...any) {
-	h.t.Helper()
-	if _, err := h.db.Exec(q, args...); err != nil {
-		h.t.Fatalf("sql %q: %v", q, err)
-	}
+	return &harness{t: t, srv: srv, db: db, url: ts.URL, logs: logs}
 }
 
 // sqlInt runs a query returning one integer.
@@ -133,8 +117,6 @@ func (h *harness) sqlInt(q string, args ...any) int64 {
 	return n
 }
 
-// --- HTTP ---
-
 type response struct {
 	t      *testing.T
 	status int
@@ -142,53 +124,41 @@ type response struct {
 	body   []byte
 }
 
-// hdr builds a header list from key/value pairs.
-type hdr []string
+// hdr is one request header: a name and a value.
+type hdr [2]string
 
 func bearer(token string) hdr { return hdr{"Authorization", "Bearer " + token} }
 
-func basic(user, pass string) hdr {
-	return hdr{"Authorization", "Basic " + base64.StdEncoding.EncodeToString([]byte(user+":"+pass))}
+// auth is a bearer header for token, or none without one.
+func auth(token string) []hdr {
+	if token == "" {
+		return nil
+	}
+	return []hdr{bearer(token)}
 }
 
-func (h *harness) newRequest(ctx context.Context, method, path string, body any, headers ...hdr) *http.Request {
+// do sends a request (body: nil, a string, or a value to encode as JSON) and reads the whole response.
+func (h *harness) do(method, path string, body any, headers ...hdr) *response {
 	h.t.Helper()
 	var r io.Reader
 	switch b := body.(type) {
 	case nil:
 	case string:
 		r = strings.NewReader(b)
-	case []byte:
-		r = bytes.NewReader(b)
 	default:
-		j, err := json.Marshal(b)
-		if err != nil {
-			h.t.Fatal(err)
-		}
+		j, _ := json.Marshal(b)
 		r = bytes.NewReader(j)
 	}
-	u := path
-	if !strings.HasPrefix(path, "http") {
-		u = h.url + path
-	}
-	req, err := http.NewRequestWithContext(ctx, method, u, r)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, method, h.url+path, r)
 	if err != nil {
 		h.t.Fatal(err)
 	}
 	for _, kv := range headers {
-		for i := 0; i+1 < len(kv); i += 2 {
-			req.Header.Set(kv[i], kv[i+1])
-		}
+		req.Header.Set(kv[0], kv[1])
 	}
-	return req
-}
-
-// do sends a request and reads the whole response.
-func (h *harness) do(method, path string, body any, headers ...hdr) *response {
-	h.t.Helper()
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	resp, err := http.DefaultClient.Do(h.newRequest(ctx, method, path, body, headers...))
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		h.t.Fatalf("%s %s: %v", method, path, err)
 	}
@@ -200,7 +170,6 @@ func (h *harness) do(method, path string, body any, headers ...hdr) *response {
 	return &response{t: h.t, status: resp.StatusCode, header: resp.Header, body: b}
 }
 
-// expect asserts the status code and returns the response.
 func (r *response) expect(status int) *response {
 	r.t.Helper()
 	if r.status != status {
@@ -209,7 +178,7 @@ func (r *response) expect(status int) *response {
 	return r
 }
 
-// expectError asserts an API error with the given code (http = code / 100).
+// expectError asserts an API error with the given status and code.
 func (r *response) expectError(want *APIError) protocol.ErrorResponse {
 	r.t.Helper()
 	r.expect(want.Status)
@@ -234,51 +203,6 @@ func (r *response) obj() map[string]any {
 	r.decode(&m)
 	return m
 }
-
-// wsURL converts a server path to a WebSocket URL.
-func (h *harness) wsURL(path string) string {
-	return "ws" + strings.TrimPrefix(h.url, "http") + path
-}
-
-func (h *harness) dialWS(path string, headers ...hdr) (*websocket.Conn, context.Context) {
-	h.t.Helper()
-	ctx, cancel := context.WithCancel(context.Background())
-	hh := http.Header{}
-	for _, kv := range headers {
-		for i := 0; i+1 < len(kv); i += 2 {
-			hh.Set(kv[i], kv[i+1])
-		}
-	}
-	conn, resp, err := websocket.Dial(ctx, h.wsURL(path), &websocket.DialOptions{HTTPHeader: hh})
-	if err != nil {
-		cancel()
-		status := 0
-		if resp != nil {
-			status = resp.StatusCode
-		}
-		h.t.Fatalf("dial %s: %v (status %d)", path, err, status)
-	}
-	h.t.Cleanup(func() {
-		conn.CloseNow()
-		cancel()
-	})
-	return conn, ctx
-}
-
-func readWS(t *testing.T, ctx context.Context, conn *websocket.Conn, v any) {
-	t.Helper()
-	rctx, cancel := context.WithTimeout(ctx, waitTimeout)
-	defer cancel()
-	_, data, err := conn.Read(rctx)
-	if err != nil {
-		t.Fatalf("websocket read: %v", err)
-	}
-	if err := json.Unmarshal(data, v); err != nil {
-		t.Fatalf("decoding %s: %v", data, err)
-	}
-}
-
-// --- Users ---
 
 // addUser creates a user directly in the store and returns it with a fresh user token.
 func (h *harness) addUser(username string, mods ...func(*store.User)) (*store.User, string) {
@@ -337,37 +261,22 @@ func mustEqual[T comparable](t *testing.T, what string, got, want T) {
 	}
 }
 
-func jsonString(v any) string {
-	b, _ := json.Marshal(v)
-	return string(b)
-}
-
-// dump renders every table of the database, rows sorted, leaving out the listed table.column pairs (or whole tables,
-// as "table.*").
+// dump renders every table of the database, rows sorted, leaving out the listed "table.column" cells.
 func (h *harness) dump(skip ...string) string {
 	h.t.Helper()
+	var tables []string
 	rows, err := h.db.Query(`SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name`)
 	if err != nil {
 		h.t.Fatal(err)
 	}
-	var tables []string
 	for rows.Next() {
 		var name string
-		if err := rows.Scan(&name); err != nil {
-			h.t.Fatal(err)
-		}
+		_ = rows.Scan(&name)
 		tables = append(tables, name)
 	}
 	rows.Close()
-	skipped := map[string]bool{}
-	for _, s := range skip {
-		skipped[s] = true
-	}
 	var out strings.Builder
 	for _, table := range tables {
-		if skipped[table+".*"] {
-			continue
-		}
 		rows, err := h.db.Query(`SELECT * FROM ` + table)
 		if err != nil {
 			h.t.Fatal(err)
@@ -385,7 +294,7 @@ func (h *harness) dump(skip ...string) string {
 			}
 			var cells []string
 			for i, c := range cols {
-				if !skipped[table+"."+c] {
+				if !slices.Contains(skip, table+"."+c) {
 					cells = append(cells, fmt.Sprintf("%s=%v", c, vals[i]))
 				}
 			}
@@ -393,7 +302,7 @@ func (h *harness) dump(skip ...string) string {
 		}
 		rows.Close()
 		slices.Sort(lines)
-		fmt.Fprintf(&out, "== %s (%d rows)\n%s\n", table, len(lines), strings.Join(lines, "\n"))
+		fmt.Fprintf(&out, "== %s\n%s\n", table, strings.Join(lines, "\n"))
 	}
 	return out.String()
 }

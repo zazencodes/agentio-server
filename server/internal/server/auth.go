@@ -110,10 +110,10 @@ func hasCredentials(r *http.Request) bool {
 	return r.Header.Get("Authorization") != "" || r.URL.Query().Has("token")
 }
 
-// HashPassword checks a password (8 to 128 characters) and hashes it.
+// HashPassword checks a password's length in UTF-8 bytes (8 to 72, bcrypt's limit) and hashes it.
 func HashPassword(p string) (string, error) {
-	if len(p) < 8 || len(p) > 128 {
-		return "", errBadPassword.Wrap("must be 8 to 128 characters")
+	if len(p) < 8 || len(p) > 72 {
+		return "", errBadPassword.Wrap("must be 8 to 72 bytes long")
 	}
 	b, err := bcrypt.GenerateFromPassword([]byte(p), 10)
 	return string(b), err

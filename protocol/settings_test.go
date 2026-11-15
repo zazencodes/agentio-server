@@ -9,20 +9,20 @@ import (
 
 var updateSettings = flag.Bool("update-settings", false, "rewrite the Go entry of testdata/settings-vectors.json")
 
-// settingsVectors are shared with the web tests: a Go-signed settings snapshot (the bridge's side) and a web-signed
-// settings change (the browser's side), both with the signing-vectors.json test key. Each implementation verifies
-// both and regenerates its own.
+// settingsVectors are shared with the web and Swift tests: a Go-signed settings snapshot (the bridge's side) and the
+// settings changes signed by each device implementation (web, swift), all with the signing-vectors.json test key.
+// Each implementation verifies every entry and regenerates its own.
 type settingsVectors struct {
-	PrivateKey string        `json:"private_key"` // P-256 scalar, hex (test key only)
-	PublicKey  string        `json:"public_key"`
-	HostID     string        `json:"host_id"`   // KeyID("hst_", public_key)
-	DeviceID   string        `json:"device_id"` // KeyID("dev_", public_key)
-	Settings   settingsEntry `json:"settings"`
-	Change     settingsEntry `json:"settings_change"`
+	PrivateKey string          `json:"private_key"` // P-256 scalar, hex (test key only)
+	PublicKey  string          `json:"public_key"`
+	HostID     string          `json:"host_id"`   // KeyID("hst_", public_key)
+	DeviceID   string          `json:"device_id"` // KeyID("dev_", public_key)
+	Settings   settingsEntry   `json:"settings"`
+	Changes    []settingsEntry `json:"settings_changes"`
 }
 
 type settingsEntry struct {
-	Source      string   `json:"source"` // go or web
+	Source      string   `json:"source"` // go, web or swift
 	Envelope    Envelope `json:"envelope"`
 	Payload     string   `json:"payload"`      // the payload bytes as a string
 	PayloadHash string   `json:"payload_hash"` // hex sha256 of the payload bytes
@@ -60,14 +60,19 @@ func TestSettingsVectors(t *testing.T) {
 	if s.Projects[0].Path != "~/pro/Ünïcödé ✓ <&>" || s.Change.Result != SettingsRejected || s.Builtin["requests"] != "never" {
 		t.Fatalf("%s settings payload %+v", v.Settings.Source, s)
 	}
+	if len(v.Changes) < 2 {
+		t.Fatalf("%d settings changes, want the web and Swift ones", len(v.Changes))
+	}
 	var c SignedSettingsChange
-	if err := v.Change.Envelope.Open(KindSettingsChange, &key.PublicKey, &c); err != nil || v.Change.Envelope.Signer != v.DeviceID {
-		t.Fatalf("%s settings change: %v", v.Change.Source, err)
+	for _, change := range v.Changes {
+		if err := change.Envelope.Open(KindSettingsChange, &key.PublicKey, &c); err != nil || change.Envelope.Signer != v.DeviceID {
+			t.Fatalf("%s settings change: %v", change.Source, err)
+		}
+		if c.ID != "chg_vector" || c.Host != v.HostID || c.Projects[0].Values["requests"] != "always" || c.Expires != c.Created+SettingsChangeLifetime {
+			t.Fatalf("%s settings change payload %+v", change.Source, c)
+		}
 	}
-	if c.ID != "chg_vector" || c.Host != v.HostID || c.Projects[0].Values["requests"] != "always" || c.Expires != c.Created+SettingsChangeLifetime {
-		t.Fatalf("%s settings change payload %+v", v.Change.Source, c)
-	}
-	for _, e := range []settingsEntry{v.Settings, v.Change} {
+	for _, e := range append([]settingsEntry{v.Settings}, v.Changes...) {
 		if got := e.Envelope.PayloadHash(); got != e.PayloadHash {
 			t.Fatalf("%s payload hash %s, want %s", e.Source, got, e.PayloadHash)
 		}
@@ -79,7 +84,7 @@ func TestSettingsVectors(t *testing.T) {
 	if err := v.Settings.Envelope.Open(KindSettingsChange, &key.PublicKey, &c); err == nil {
 		t.Fatal("a settings snapshot verified as a change")
 	}
-	swapped := v.Change.Envelope
+	swapped := v.Changes[0].Envelope
 	swapped.Kind = KindSettings
 	if err := swapped.Open(KindSettings, &key.PublicKey, &s); err == nil {
 		t.Fatal("a settings change verified as a snapshot")

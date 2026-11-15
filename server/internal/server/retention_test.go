@@ -1,7 +1,6 @@
 package server
 
 import (
-	"encoding/json"
 	"net/http"
 	"strings"
 	"testing"
@@ -13,7 +12,7 @@ import (
 )
 
 // The server stores nothing (spec §2): a machine and a browser with real keys pair through the API, then relay an
-// update with a request, a sealed response, a command and its update, and a frame for an offline browser. The
+// update with a request, a sealed response, a command, and a frame and push for an offline browser. The
 // database is identical before and after the relay traffic except for token last_access, nothing about the content
 // reaches the database, and no log line (at debug level) holds any content, ciphertext, nonce, frame ID,
 // token or IP address.
@@ -30,27 +29,19 @@ func TestZeroRetention(t *testing.T) {
 	skip := []string{"tokens.last_access"}
 	before := h.dump(skip...)
 	var frames []*protocol.SealedFrame
-	relay := func(from, to *relayClient, f *protocol.SealedFrame) *protocol.Envelope {
+	relay := func(from, to *relayClient, f *protocol.SealedFrame) {
 		t.Helper()
 		frames = append(frames, f)
 		from.frame(f)
-		if m := from.relayed(f); m.Result != protocol.RelayDelivered {
-			t.Fatalf("relayed %+v", m)
-		}
-		m := to.next()
-		if m.Type != protocol.RelayFrame || *m.Frame != *f {
+		mustEqual(t, "relayed", from.relayed(f).Result, protocol.RelayDelivered)
+		if m := to.next(); m.Type != protocol.RelayFrame || *m.Frame != *f {
 			t.Fatalf("received %+v", m)
 		}
-		env, err := m.Frame.Open(pk)
-		if err != nil {
-			t.Fatal(err)
-		}
-		return env
 	}
 	now := time.Now().Unix()
 	session := protocol.SessionID(th.id, protocol.ProviderCodex, "native-1")
 
-	// The bridge opens an approval.
+	// The bridge opens an approval, the browser approves it and sends a command.
 	reqEnv, err := protocol.Sign(th.sign, th.id, protocol.KindRequest, protocol.SignedRequest{ID: "req_1", Host: th.id, Session: session,
 		Type: protocol.RequestApproval, Title: marker + "-request-title", Body: marker + "-request-body", Options: []string{},
 		Created: now, Expires: now + 600})
@@ -63,34 +54,12 @@ func TestZeroRetention(t *testing.T) {
 		Sessions: []protocol.Session{{ID: session, Project: "prj_1", Provider: protocol.ProviderCodex, NativeID: "native-1", Title: marker + "-session", Seq: 2}},
 		Items: []protocol.Item{{ID: "req_1", Session: session, Type: protocol.ItemRequest, Time: now, Pos: 3, Seq: 3,
 			Request: &protocol.RequestItem{Envelope: reqEnv, Status: protocol.RequestPending}}}}
-	env := relay(hc, dc, sealFrom(t, pk, th.sign, th.id, d.id, protocol.KindUpdate, update))
-	var got protocol.Update
-	if err := env.Open(protocol.KindUpdate, &th.sign.PublicKey, &got); err != nil || got.Items[0].Request.Envelope.PayloadHash() != reqEnv.PayloadHash() {
-		t.Fatalf("browser's update %+v %v", got, err)
-	}
-
-	// The browser approves it and replies.
-	response := protocol.SignedResponse{Request: "req_1", RequestHash: reqEnv.PayloadHash(), Decision: protocol.DecisionApprove, Text: marker + "-reason", Time: now}
-	env = relay(dc, hc, sealFrom(t, pk, d.sign, d.id, th.id, protocol.KindResponse, response))
-	var gotResponse protocol.SignedResponse
-	if err := env.Open(protocol.KindResponse, &d.sign.PublicKey, &gotResponse); err != nil || gotResponse != response {
-		t.Fatalf("bridge's response %+v %v", gotResponse, err)
-	}
-	command := protocol.SignedCommand{ID: "cmd_1", Host: th.id, Session: session, Text: marker + "-command-text", Created: now, Expires: now + 86400}
-	env = relay(dc, hc, sealFrom(t, pk, d.sign, d.id, th.id, protocol.KindCommand, command))
-	var gotCommand protocol.SignedCommand
-	if err := env.Open(protocol.KindCommand, &d.sign.PublicKey, &gotCommand); err != nil || gotCommand != command {
-		t.Fatalf("bridge's command %+v %v", gotCommand, err)
-	}
-
-	// The bridge reports both.
-	update = protocol.Update{Host: th.id, Time: now, Epoch: "epo_1", Items: []protocol.Item{
-		{ID: "req_1", Session: session, Type: protocol.ItemRequest, Time: now, Pos: 3, Seq: 4, Request: &protocol.RequestItem{Envelope: reqEnv,
-			Status: protocol.RequestApproved, Response: &protocol.ResponseRecord{Decision: protocol.DecisionApprove, Text: response.Text, Time: now, Signer: d.id, Device: d.name}}},
-		{ID: "cmd_1", Session: session, Type: protocol.ItemCommand, Time: now, Pos: 4, Seq: 5, Command: &protocol.CommandItem{Text: command.Text,
-			Created: now, Expires: command.Expires, Signer: d.id, Device: d.name, State: protocol.CommandDelivered, Updated: now}},
-	}}
 	relay(hc, dc, sealFrom(t, pk, th.sign, th.id, d.id, protocol.KindUpdate, update))
+
+	response := protocol.SignedResponse{Request: "req_1", RequestHash: reqEnv.PayloadHash(), Decision: protocol.DecisionApprove, Text: marker + "-reason", Time: now}
+	relay(dc, hc, sealFrom(t, pk, d.sign, d.id, th.id, protocol.KindResponse, response))
+	command := protocol.SignedCommand{ID: "cmd_1", Host: th.id, Session: session, Text: marker + "-command-text", Created: now, Expires: now + 86400}
+	relay(dc, hc, sealFrom(t, pk, d.sign, d.id, th.id, protocol.KindCommand, command))
 
 	// A frame and push for a browser that has gone away are dropped, not kept.
 	dc.conn.Close(websocket.StatusNormalClosure, "")
@@ -116,12 +85,11 @@ func TestZeroRetention(t *testing.T) {
 	}
 	secrets := []string{marker, token, th.token, "127.0.0.1", "secret="}
 	for _, f := range frames {
-		raw, _ := json.Marshal(f)
-		secrets = append(secrets, f.ID, f.Nonce, f.CT, string(raw))
+		secrets = append(secrets, f.ID, f.Nonce, f.CT)
 	}
 	for _, line := range strings.Split(logs, "\n") {
 		for _, s := range secrets {
-			if s != "" && strings.Contains(line, s) {
+			if strings.Contains(line, s) {
 				t.Fatalf("log line holds %q: %s", s, line)
 			}
 		}

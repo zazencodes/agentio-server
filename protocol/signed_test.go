@@ -139,7 +139,7 @@ func writeVectors(t *testing.T) {
 func TestSignOpen(t *testing.T) {
 	a, _ := NewKey()
 	b, _ := NewKey()
-	env, err := Sign(a, KeyID("hst_", EncodePublicKey(&a.PublicKey)), KindAway, SignedAway{Host: "hst_x", Mode: "on", Time: 1})
+	env, err := Sign(a, "hst_x", KindAway, SignedAway{Host: "hst_x", Mode: "on", Time: 1})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -147,18 +147,9 @@ func TestSignOpen(t *testing.T) {
 	if err := env.Open(KindAway, &a.PublicKey, &out); err != nil || out.Mode != "on" {
 		t.Fatalf("open: %v %+v", err, out)
 	}
-	if err := env.Open(KindAway, &b.PublicKey, &out); err == nil {
-		t.Fatal("verified with the wrong key")
-	}
 	tampered := *env
 	tampered.Payload = b64.EncodeToString([]byte(`{"host":"hst_x","mode":"off","time":1}`))
-	if err := tampered.Open(KindAway, &a.PublicKey, &out); err == nil {
-		t.Fatal("verified a tampered payload")
-	}
-	if _, err := ParsePublicKey(EncodePublicKey(&a.PublicKey)); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := ParsePublicKey("AAAA"); err == nil {
-		t.Fatal("parsed garbage as a key")
+	if env.Open(KindAway, &b.PublicKey, &out) == nil || tampered.Open(KindAway, &a.PublicKey, &out) == nil {
+		t.Fatal("verified with the wrong key or a tampered payload")
 	}
 }

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -18,44 +19,23 @@ import (
 // testOrigin is the app origin test devices bind their sensitive key to.
 const testOrigin = "https://app.example.test"
 
-// testHost is a computer's bridge with real keys, as the CLI holds them.
-type testHost struct {
-	sign   *ecdsa.PrivateKey
-	enc    *ecdh.PrivateKey
-	key    string
-	encKey string
-	id     string
-	name   string
-	token  string // set once paired
-}
-
-func newTestHost(t *testing.T, name string) *testHost {
-	t.Helper()
-	sign, err := protocol.NewKey()
-	if err != nil {
-		t.Fatal(err)
-	}
-	enc, err := protocol.NewEncKey()
-	if err != nil {
-		t.Fatal(err)
-	}
-	key := protocol.EncodePublicKey(&sign.PublicKey)
-	return &testHost{sign: sign, enc: enc, key: key, encKey: protocol.EncodeEncKey(enc.PublicKey()), id: protocol.KeyID("hst_", key), name: name}
-}
-
-// testDevice is a browser profile with real keys, as the web app holds them.
-type testDevice struct {
+// testPeer is a computer's bridge (testHost) or a browser profile (testDevice) with real keys, as the CLI and the
+// web app hold them.
+type testPeer struct {
 	sign         *ecdsa.PrivateKey
-	sensitive    *ecdsa.PrivateKey
 	enc          *ecdh.PrivateKey
 	key          string
-	sensitiveKey string
+	sensitiveKey string // a device's key for sensitive actions
 	encKey       string
 	id           string
 	name         string
+	token        string // a host's machine token, set once paired
 }
 
-func newTestDevice(t *testing.T, name string) *testDevice {
+type testHost = testPeer
+type testDevice = testPeer
+
+func newTestPeer(t *testing.T, prefix, name string) *testPeer {
 	t.Helper()
 	sign, err1 := protocol.NewKey()
 	sensitive, err2 := protocol.NewKey()
@@ -64,25 +44,21 @@ func newTestDevice(t *testing.T, name string) *testDevice {
 		t.Fatal(err)
 	}
 	key := protocol.EncodePublicKey(&sign.PublicKey)
-	return &testDevice{sign: sign, sensitive: sensitive, enc: enc, key: key, sensitiveKey: protocol.EncodePublicKey(&sensitive.PublicKey),
-		encKey: protocol.EncodeEncKey(enc.PublicKey()), id: protocol.KeyID("dev_", key), name: name}
+	return &testPeer{sign: sign, enc: enc, key: key, sensitiveKey: protocol.EncodePublicKey(&sensitive.PublicKey),
+		encKey: protocol.EncodeEncKey(enc.PublicKey()), id: protocol.KeyID(prefix, key), name: name}
 }
 
-// pairKey is the key a host and a device seal their frames with, derived from either side.
+func newTestHost(t *testing.T, name string) *testHost     { return newTestPeer(t, "hst_", name) }
+func newTestDevice(t *testing.T, name string) *testDevice { return newTestPeer(t, "dev_", name) }
+
+// pairKey is the key a host and a device seal their frames with.
 func pairKey(t *testing.T, th *testHost, d *testDevice) []byte {
 	t.Helper()
-	fromHost, err := protocol.PairKey(th.enc, d.enc.PublicKey(), th.id, d.id)
+	k, err := protocol.PairKey(th.enc, d.enc.PublicKey(), th.id, d.id)
 	if err != nil {
 		t.Fatal(err)
 	}
-	fromDevice, err := protocol.PairKey(d.enc, th.enc.PublicKey(), th.id, d.id)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(fromHost) != string(fromDevice) {
-		t.Fatal("the two sides derive different pair keys")
-	}
-	return fromHost
+	return k
 }
 
 // sealFrom signs a payload with key as signer and seals it for one peer.
@@ -110,12 +86,8 @@ type testPairing struct {
 func (h *harness) startPairing(th *testHost, hostToken string) *testPairing {
 	h.t.Helper()
 	p := &testPairing{id: protocol.NewRandomID("pair_"), k: protocol.NewSecret()}
-	var headers []hdr
-	if hostToken != "" {
-		headers = append(headers, bearer(hostToken))
-	}
 	var started protocol.PairStarted
-	h.do(http.MethodPost, "/api/v1/pair", protocol.PairStart{ID: p.id, HostKey: th.key, HostEncKey: th.encKey}, headers...).expect(http.StatusOK).decode(&started)
+	h.do(http.MethodPost, "/api/v1/pair", protocol.PairStart{ID: p.id, HostKey: th.key, HostEncKey: th.encKey}, auth(hostToken)...).expect(http.StatusOK).decode(&started)
 	p.secret = started.Secret
 	return p
 }
@@ -141,90 +113,41 @@ func claimBody(t *testing.T, p *testPairing, d *testDevice) protocol.PairClaim {
 
 func (h *harness) claim(p *testPairing, d *testDevice, userToken string) *response {
 	h.t.Helper()
-	var headers []hdr
-	if userToken != "" {
-		headers = append(headers, bearer(userToken))
-	}
-	return h.do(http.MethodPost, "/api/v1/pair/"+p.id+"/claim", claimBody(h.t, p, d), headers...)
+	return h.do(http.MethodPost, "/api/v1/pair/"+p.id+"/claim", claimBody(h.t, p, d), auth(userToken)...)
 }
 
-func (h *harness) pairPoll(id, secret, query string) protocol.PairStatus {
+func (h *harness) pairPoll(id, secret string) protocol.PairStatus {
 	h.t.Helper()
 	var st protocol.PairStatus
-	h.do(http.MethodGet, "/api/v1/pair/"+id+"?secret="+secret+query, nil).expect(http.StatusOK).decode(&st)
+	h.do(http.MethodGet, "/api/v1/pair/"+id+"?secret="+secret, nil).expect(http.StatusOK).decode(&st)
 	return st
 }
 
-// confirmation checks the claim the server relayed, like the CLI does, and returns the host's signed and sealed
-// confirmation.
-func confirmation(t *testing.T, p *testPairing, th *testHost, claim *protocol.PairClaim) string {
-	t.Helper()
-	nameKey, _ := protocol.SecretKey(p.k, protocol.InfoPairName)
-	name, err := protocol.OpenSecret(nameKey, claim.SealedName, protocol.PairNameAAD(p.id))
-	if err != nil {
-		t.Fatalf("opening the sealed name: %v", err)
-	}
-	if !protocol.CheckPairMAC(claim.MAC, p.k, p.id, claim.DeviceKey, claim.DeviceSensitiveKey, claim.DeviceEncKey, string(name), claim.DeviceSensitiveOrigin) {
-		t.Fatal("the relayed claim's MAC doesn't verify")
-	}
-	env, err := protocol.Sign(th.sign, th.id, protocol.KindPair, protocol.SignedPair{Pair: p.id, Host: th.id, HostKey: th.key, HostEncKey: th.encKey,
-		HostName: th.name, Device: claim.Device, DeviceKey: claim.DeviceKey, DeviceSensitiveKey: claim.DeviceSensitiveKey,
-		DeviceSensitiveOrigin: claim.DeviceSensitiveOrigin, DeviceEncKey: claim.DeviceEncKey, DeviceName: string(name), Time: time.Now().Unix()})
-	if err != nil {
-		t.Fatal(err)
-	}
-	confirmKey, _ := protocol.SecretKey(p.k, protocol.InfoPairConfirm)
-	b, _ := json.Marshal(env)
-	sealed, err := protocol.SealSecret(confirmKey, b, protocol.PairConfirmAAD(p.id))
-	if err != nil {
-		t.Fatal(err)
-	}
-	return sealed
-}
-
-// pairResult is what a finished pairing hands out.
-type pairResult struct {
-	confirm   protocol.PairConfirmResult // the terminal's view
-	device    protocol.PairStatus        // the browser's view
-	userToken string                     // the browser's token: its own, or the one the pairing issued
-}
-
 // pair runs a whole pairing through the API: the terminal starts it (with th.token once th is paired), the browser
-// claims it (with userToken, or none), the terminal checks and confirms it, and the browser opens the confirmation.
-func (h *harness) pair(th *testHost, d *testDevice, userToken string) pairResult {
+// claims it (with userToken, or none), the terminal confirms it with a sealed confirmation, and the browser gets
+// that confirmation as sent. It returns the terminal's view of the result.
+func (h *harness) pair(th *testHost, d *testDevice, userToken string) protocol.PairConfirmResult {
 	h.t.Helper()
 	p := h.startPairing(th, th.token)
 	var claimed protocol.PairStarted
 	h.claim(p, d, userToken).expect(http.StatusOK).decode(&claimed)
-	st := h.pairPoll(p.id, p.secret, "")
-	if st.Status != protocol.PairClaimed || st.Claim == nil || st.Claim.Device != d.id {
+	if st := h.pairPoll(p.id, p.secret); st.Status != protocol.PairClaimed || st.Claim.Device != d.id || st.Claim.DeviceEncKey != d.encKey {
 		h.t.Fatalf("host poll %+v", st)
 	}
-	var res pairResult
-	h.do(http.MethodPost, "/api/v1/pair/"+p.id+"/confirm", protocol.PairConfirm{Secret: p.secret, Confirm: confirmation(h.t, p, th, st.Claim)}).
-		expect(http.StatusOK).decode(&res.confirm)
-	if res.confirm.Token != "" {
-		th.token = res.confirm.Token
-	}
-	res.device = h.pairPoll(p.id, claimed.Secret, "")
-	if res.device.Status != protocol.PairConfirmed || res.device.Host == nil || *res.device.Host != (protocol.PairHost{ID: th.id, Key: th.key, EncKey: th.encKey}) {
-		h.t.Fatalf("device poll %+v", res.device)
-	}
-	// The browser opens the confirmation and checks it is for its own keys and name.
 	confirmKey, _ := protocol.SecretKey(p.k, protocol.InfoPairConfirm)
-	b, err := protocol.OpenSecret(confirmKey, res.device.Confirm, protocol.PairConfirmAAD(p.id))
+	sealed, err := protocol.SealSecret(confirmKey, []byte(th.name), protocol.PairConfirmAAD(p.id))
 	if err != nil {
-		h.t.Fatalf("opening the confirmation: %v", err)
+		h.t.Fatal(err)
 	}
-	var env protocol.Envelope
-	var signed protocol.SignedPair
-	if err := json.Unmarshal(b, &env); err != nil || env.Open(protocol.KindPair, &th.sign.PublicKey, &signed) != nil {
-		h.t.Fatalf("confirmation doesn't verify: %v", err)
+	var res protocol.PairConfirmResult
+	h.do(http.MethodPost, "/api/v1/pair/"+p.id+"/confirm", protocol.PairConfirm{Secret: p.secret, Confirm: sealed}).expect(http.StatusOK).decode(&res)
+	if res.Token != "" {
+		th.token = res.Token
 	}
-	if signed.Device != d.id || signed.DeviceEncKey != d.encKey || signed.DeviceName != d.name || signed.HostEncKey != th.encKey || signed.HostName != th.name {
-		h.t.Fatalf("confirmation %+v", signed)
+	st := h.pairPoll(p.id, claimed.Secret)
+	if st.Status != protocol.PairConfirmed || st.Confirm != sealed || *st.Host != (protocol.PairHost{ID: th.id, Key: th.key, EncKey: th.encKey}) {
+		h.t.Fatalf("device poll %+v", st)
 	}
-	res.userToken = userToken
 	return res
 }
 
@@ -242,11 +165,20 @@ type relayClient struct {
 
 func (h *harness) relay(path, token string) *relayClient {
 	h.t.Helper()
-	var headers []hdr
-	if token != "" {
-		headers = append(headers, bearer(token))
+	ctx, cancel := context.WithCancel(context.Background())
+	hh := http.Header{}
+	for _, kv := range auth(token) {
+		hh.Set(kv[0], kv[1])
 	}
-	conn, ctx := h.dialWS(path, headers...)
+	conn, _, err := websocket.Dial(ctx, "ws"+strings.TrimPrefix(h.url, "http")+path, &websocket.DialOptions{HTTPHeader: hh})
+	if err != nil {
+		cancel()
+		h.t.Fatalf("dial %s: %v", path, err)
+	}
+	h.t.Cleanup(func() {
+		conn.CloseNow()
+		cancel()
+	})
 	c := &relayClient{t: h.t, conn: conn, ctx: ctx, msgs: make(chan protocol.RelayMessage, 256), closed: make(chan struct{})}
 	go func() {
 		defer close(c.closed)

@@ -10,9 +10,9 @@
         "kind": "command",
         "signer": "dev_wgfyntqtrhsg32d2ussr",
         "payload": "eyJjcmVhdGVkIjoxNzYwNjU5MTUwLCJleHBpcmVzIjoxNzYwNzQ1NTUwLCJob3N0IjoiaHN0X3ZlY3RvciIsImlkIjoiY21kX3ZlY3RvciIsInNlc3Npb24iOiJzZXNfdmVjdG9yIiwidGV4dCI6IlVzZSBQb3N0Z3JlU1FMLiDDnG7Dr2PDtmTDqSDinJMgPCY-In0",
-        "sig": "MEQCIEW3XLWNyMS7-Xe_NNkT58qxqb6aLGF3Lthg2v1BJ1ITAiBOr67xwHSA1oZ_8Njz1DUV4K9BI_oJuUwbm_hEEIpWSA"
+        "sig": "MEUCICBmxXDUv4T7kmfHmypK9iahM2SkcKlVg5ndbZzBoqsfAiEA4tj-1on-DQgtbmsy8YSxRMl8_VlsXGwUhjmmROoOAgo"
       },
-      "payload": "{\"created\":1760659150,\"expires\":1760745550,\"host\":\"hst_vector\",\"id\":\"cmd_vector\",\"session\":\"ses_vector\",\"text\":\"Use PostgreSQL. Ünïcödé ✓ \u003c\u0026\u003e\"}",
+      "payload": "{\"created\":1760659150,\"expires\":1760745550,\"host\":\"hst_vector\",\"id\":\"cmd_vector\",\"session\":\"ses_vector\",\"text\":\"Use PostgreSQL. Ünïcödé ✓ <&>\"}",
       "payload_hash": "64b91987806d7159e22f5341ca26b883bc664a30707f063e26de48991691cdcc"
     },
     {
@@ -24,7 +24,7 @@
         "payload": "eyJpZCI6ImNtZF92ZWN0b3IiLCJob3N0IjoiaHN0X3ZlY3RvciIsInNlc3Npb24iOiJzZXNfdmVjdG9yIiwidGV4dCI6IlVzZSBQb3N0Z3JlU1FMLiDDnG7Dr2PDtmTDqSDinJMgPCY-IiwiY3JlYXRlZCI6MTc2MDY1OTE1MCwiZXhwaXJlcyI6MTc2MDc0NTU1MH0",
         "sig": "MEQCIC3Dkk6_LIlg0EsUHmLrZAK0xCRYC7ZlIDVTtoyZokTyAiAzrUL7lDTHz-EaZsbeANDOVjbsaAG6D_n5z_YpLSjqdg"
       },
-      "payload": "{\"id\":\"cmd_vector\",\"host\":\"hst_vector\",\"session\":\"ses_vector\",\"text\":\"Use PostgreSQL. Ünïcödé ✓ \u003c\u0026\u003e\",\"created\":1760659150,\"expires\":1760745550}",
+      "payload": "{\"id\":\"cmd_vector\",\"host\":\"hst_vector\",\"session\":\"ses_vector\",\"text\":\"Use PostgreSQL. Ünïcödé ✓ <&>\",\"created\":1760659150,\"expires\":1760745550}",
       "payload_hash": "41e007c43b9f6c69d4e3a7b002418733826c44d6868d42e6188e45e7f35ad8a2"
     },
     {

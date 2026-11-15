@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.3.5] - 2026-11-15
+
+### Fixed
+
+- Fixed sign-up accepting an empty password, and `agentio-server user add` an empty line, which made an account nobody could sign in to and took its username
+- Fixed a password longer than 72 bytes failing with a server error at sign-up, password change and `agentio-server user change-pass`: passwords are now 8 to 72 bytes in UTF-8, bcrypt's limit, and a longer one is refused with `bad_password`
+
 ## [0.3.4] - 2026-11-05
 
 ### Added

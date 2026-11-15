@@ -13,21 +13,26 @@ import (
 
 var usernameRegex = regexp.MustCompile(`^[-_.@+A-Za-z0-9]{3,64}$`)
 
-// NewUser returns a new account with a checked username and, unless password is empty (an account without one), a
-// checked and hashed password. It is the one place accounts are made, for sign-up and the admin command alike.
+// NewUser returns a new account with a checked username and a checked, hashed password. It is the one place
+// accounts with a password are made, for sign-up and the admin command alike.
 func NewUser(username, password, role string) (*store.User, error) {
+	u, err := NewPasswordlessUser(username, role)
+	if err != nil {
+		return nil, err
+	}
+	if u.PasswordHash, err = HashPassword(password); err != nil {
+		return nil, err
+	}
+	return u, nil
+}
+
+// NewPasswordlessUser returns a new account with a checked username and no password, for a server whose people
+// sign in through an extension's endpoints (Extension.NoPasswords).
+func NewPasswordlessUser(username, role string) (*store.User, error) {
 	if !usernameRegex.MatchString(username) {
 		return nil, errBadUsername
 	}
-	u := &store.User{ID: newID("usr_"), Username: username, Role: role, Created: time.Now().Unix()}
-	if password != "" {
-		hash, err := HashPassword(password)
-		if err != nil {
-			return nil, err
-		}
-		u.PasswordHash = hash
-	}
-	return u, nil
+	return &store.User{ID: newID("usr_"), Username: username, Role: role, Created: time.Now().Unix()}, nil
 }
 
 // DecodeJSON decodes a JSON request body of at most 64 KiB into v.

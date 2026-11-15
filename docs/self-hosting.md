@@ -115,7 +115,8 @@ agentio-server user list                        # also: user del, user change-pa
 
 People sign in to the web app with their username and password (`POST /api/v1/auth/password`), which gives that
 browser a 30-day token. The Account page lists every signed-in browser and computer and signs any of them out; a
-token's secret is shown only once, to the browser or computer it was issued to.
+token's secret is shown only once, to the browser or computer it was issued to. A password is 8 to 72 bytes in
+UTF-8 (bcrypt's limit), for `user add` and `user change-pass` as for sign-up and password changes through the API.
 
 Users delete their own account in the web app's Account page (`DELETE /api/v1/account`, confirmed with their password); `user del` does the same for an operator. Either removes the account, its tokens, paired computers and browsers and Web Push subscriptions.
 

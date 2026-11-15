@@ -62,6 +62,9 @@ The HTTP status says what kind of failure it is; `code` is a stable snake_case n
 | `POST /api/v1/account/password` | `{"password","new_password"}` | |
 | `DELETE /api/v1/account/tokens/{id}` | | Revokes a token of the account (user token): signs that browser or computer out, or this one, and closes its relay sockets |
 
+A new password (`password` at sign-up, `new_password`) must be 8 to 72 bytes in UTF-8, bcrypt's limit: an empty,
+shorter or longer one is `400 bad_password` and changes nothing.
+
 `Token` is `{"id","kind","label","last_access","expires","current"}`, never the secret; `current` marks the token
 that made the request. `IssuedToken` is `{"id","token","kind","label","expires"}`, the only response with a secret.
 
@@ -444,7 +447,7 @@ Live: whenever a project, session or item changes, or the settings snapshot or a
 
 **sync**: if `epoch` isn't the bridge's, `since` is 0, or `since` is older than the oldest remembered deletion, the reply is a **full snapshot** (`full: true`), which replaces the device's whole mirror of this host: `machine`, every project and session, every pending request, the newest items of each session (at most 50 each, oldest dropped first so the reply stays within about 256 KB; older ones come from `timeline`), `settings`, `away`, and `cursor` = the current counter. Otherwise it carries `machine`, `settings`, `away`, and every project, session, item and deletion with `seq` > `since`, in `seq` order, at most 256 KB of payload per reply; `cursor` is the highest `seq` included and `more` is true when there is more, which the device fetches with another `sync` from that cursor. Deletions are remembered for 30 days.
 
-**timeline**: the `limit` (at most 200) newest items of `session` with `pos` < `before` (0 means the newest), oldest first, and `has_more` when older ones exist.
+**timeline**: the newest items of `session` with `pos` < `before` (0 means the newest), oldest first, and `has_more` when older ones exist: at most `limit` (at most 200) of them, and fewer when they would take more than about 256 KB of payload (always at least one). A page may therefore hold fewer than `limit` items while `has_more` is true; the device asks for the next page with `before` = the `pos` of the first item it got.
 
 ### 10.4 The bridge's outbox
 

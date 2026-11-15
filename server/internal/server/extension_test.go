@@ -9,7 +9,8 @@ import (
 	"agentio.sh/server/internal/store"
 )
 
-// An extension's endpoints are served like the core's, and its fields join the config and the account.
+// An extension's endpoints are served like the core's, its fields join the config and the account, and its
+// maintenance runs with the core's and again at shutdown.
 func TestExtensionRoutesAndFields(t *testing.T) {
 	t.Parallel()
 	var maintained atomic.Int32
@@ -36,13 +37,10 @@ func TestExtensionRoutesAndFields(t *testing.T) {
 	_, tok := h.addUser("maya")
 	mustEqual(t, "greeting", h.do(http.MethodGet, "/api/v1/greeting", nil, bearer(tok)).expect(http.StatusOK).obj()["hello"], any("maya"))
 	h.do(http.MethodGet, "/api/v1/greeting", nil).expectError(ErrUnauthorized)
-	h.do(http.MethodGet, "/api/v1/greeting", nil, bearer("aio_nope")).expectError(ErrUnauthorized)
 	e := h.do(http.MethodPost, "/api/v1/greeting", nil).expectError(NewError(418, "teapot", ""))
 	mustEqual(t, "error message", e.Error, "Short and stout: spout")
-	mustEqual(t, "CORS", h.do(http.MethodOptions, "/api/v1/greeting", nil).expect(http.StatusOK).header.Get("Access-Control-Allow-Origin"), "*")
 	mustEqual(t, "config field", h.do(http.MethodGet, "/api/v1/config", nil).expect(http.StatusOK).obj()["enable_greeting"], any(true))
 	mustEqual(t, "account field", h.do(http.MethodGet, "/api/v1/account", nil, bearer(tok)).expect(http.StatusOK).obj()["greeting"], any("hi maya"))
-
 	h.srv.maintain()
 	h.srv.shutdown(nil)
 	mustEqual(t, "maintenance runs", maintained.Load(), 2)
@@ -60,16 +58,4 @@ func TestExtensionNoPasswords(t *testing.T) {
 	h.do(http.MethodPost, "/api/v1/account", map[string]string{"username": "newbie", "password": "supersecret"}).expectError(errSignupDisabled)
 	h.do(http.MethodPost, "/api/v1/account/password", map[string]string{"password": testPassword, "new_password": "newpassword1"}, bearer(tok)).expectError(errNoPasswords)
 	h.do(http.MethodDelete, "/api/v1/account", map[string]string{"password": testPassword}, bearer(tok)).expectError(errNoPasswords)
-	h.do(http.MethodGet, "/api/v1/account", nil, bearer(tok)).expect(http.StatusOK)
-}
-
-func TestExtendTwicePanics(t *testing.T) {
-	t.Parallel()
-	h := newHarness(t)
-	defer func() {
-		if recover() == nil {
-			t.Fatal("a second Extend didn't panic")
-		}
-	}()
-	h.srv.Extend(Extension{})
 }

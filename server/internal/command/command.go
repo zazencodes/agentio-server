@@ -293,14 +293,17 @@ func (p Program) addUser(ctx context.Context, st *store.Store, name, role string
 	if role != store.RoleAdmin && role != store.RoleUser {
 		return errors.New("role must be admin or user")
 	}
-	password := ""
-	if !p.NoPasswords {
-		var err error
+	var u *store.User
+	var err error
+	if p.NoPasswords {
+		u, err = server.NewPasswordlessUser(name, role)
+	} else {
+		var password string
 		if password, err = readPassword(); err != nil {
 			return err
 		}
+		u, err = server.NewUser(name, password, role)
 	}
-	u, err := server.NewUser(name, password, role)
 	if err != nil {
 		return err
 	}
